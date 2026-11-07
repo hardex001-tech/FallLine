@@ -35,18 +35,18 @@ FallLine discovers real network, service, web, and cloud exposures, chains them 
 - **Audit Log**: Every scan and verification check (allowed or refused) is recorded to `data/audit.log`.
 
 ## Features across Milestones (M1 – M5 + v2 + v3)
-- **M1 — Scope Guard & Pluggable Scanners**: `scope.py` + adapters for `nmap` (`-sV`), `naabu`, `httpx` (ProjectDiscovery), `nuclei` (safe `exposure`/`misconfig` templates only), and a pure-Python `socket` fallback.
-- **M2 — Rules Knowledge Base, Threat Intel & Attack-Path Engine**:
+- **M1  Scope Guard & Pluggable Scanners**: `scope.py` + adapters for `nmap` (`-sV`), `naabu`, `httpx` (ProjectDiscovery), `nuclei` (safe `exposure`/`misconfig` templates only), and a pure-Python `socket` fallback.
+- **M2  Rules Knowledge Base, Threat Intel & Attack-Path Engine**:
   - `fallline/rules/rules.yaml`: Maps findings to MITRE ATT&CK techniques, attacker effort minutes, fix effort minutes, plain-language remediation, and copy-ready remediation commands (`fix_command`).
   - `fallline/intel.py`: CISA Known Exploited Vulnerabilities (KEV) and FIRST EPSS loader with local caching (`data/intel_cache.json`) and graceful offline fallback.
   - `fallline/paths.py`: Directed multigraph engine (`networkx` / Dijkstra) computing shortest path from `ATTACKER` to `GOAL`, time-to-compromise (`external` and `internal` perspectives), and greedy choke-point fix ranking.
-- **M3 — SQLite Store, Verification Loop & Web Dashboard**:
+- **M3  SQLite Store, Verification Loop & Web Dashboard**:
   - `fallline/store.py` & `fallline/verify.py`: Tracks `OPEN`, `FIXED_VERIFIED`, and `ACCEPTED_RISK`. Re-scans only the single fixed port/check; inconclusive probes (host down / timeout) never mark a finding fixed.
   - `fallline/app.py` & `fallline/web/`: FastAPI dashboard with animated HTML5 canvas dominoes, live time-to-compromise, before/after comparison, target scope & public ownership verification controls, and clearly labeled What-If Simulation mode.
-- **M4 — Full Pipeline Integration**: End-to-end discovery + web profiling (`httpx`) + safe `nuclei` checks + KEV/EPSS effort scaling.
-- **M5 — Plain-Language HTML & PDF "Attack Story" Reports**: Self-contained HTML and zero-dependency PDF report generation (`fallline/report.py`).
-- **v2 — Read-Only AWS Configuration Audit**: Checks EC2 security groups for world-open admin ports, public S3 buckets (Block Public Access, ACLs, policies), root MFA, and stale IAM access keys (`fallline/aws_audit.py`).
-- **v3 — Platform Upgrades**:
+- **M4  Full Pipeline Integration**: End-to-end discovery + web profiling (`httpx`) + safe `nuclei` checks + KEV/EPSS effort scaling.
+- **M5  Plain-Language HTML & PDF "Attack Story" Reports**: Self-contained HTML and zero-dependency PDF report generation (`fallline/report.py`).
+- **v2  Read-Only AWS Configuration Audit**: Checks EC2 security groups for world-open admin ports, public S3 buckets (Block Public Access, ACLs, policies), root MFA, and stale IAM access keys (`fallline/aws_audit.py`).
+- **v3  Platform Upgrades**:
   - **MITRE ATT&CK Tactic Matrix & Copy-Ready Playbooks**: 9-phase MITRE ATT&CK coverage summary (`Initial Access` through `Impact`) across API (`/api/mitre`), CLI (`fallline mitre`), and Dashboard, plus one-click copy-ready defensive remediation commands (`ufw`, `systemctl`, `sshd_config`, `aws ec2`/`s3api`/`iam`) for every rule.
   - **Assessment Snapshots & History Diffing**: Point-in-time SQLite snapshots (`fallline snapshot save|list|diff` & `/api/snapshots/diff`) comparing `+ new` findings, `- fixed` verified findings, `accepted` risks, External/Internal Time-to-Compromise deltas, and Domino chain length changes (auto-seeded in `--demo` mode).
   - **Enterprise Security Exports (SARIF 2.1.0 + CSV)**: Export findings in SARIF 2.1.0 (`.sarif`) for GitHub Code Scanning / VS Code SARIF Viewer and CSV (`.csv`) for Jira / ServiceNow / spreadsheet tracking.

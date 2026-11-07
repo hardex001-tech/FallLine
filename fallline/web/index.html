@@ -1,0 +1,218 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FallLine — Attack Path &amp; Verification</title>
+<link rel="icon" type="image/jpeg" href="/assets/logo.jpg">
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+
+<header class="app-header">
+  <div class="brand">
+    <img src="/assets/logo.jpg" alt="FallLine" class="brand-logo" onerror="this.style.display='none'">
+    <div>
+      <span class="logo">FallLine</span>
+      <span class="subtitle">Attack Path &amp; Remediation Verification</span>
+    </div>
+  </div>
+  <div class="header-controls">
+    <span id="mode-badge" class="badge">Live Scope</span>
+    <label class="select-label">Perspective
+      <select id="perspective">
+        <option value="external">External (unauthenticated)</option>
+        <option value="internal">Internal (LAN foothold)</option>
+      </select>
+    </label>
+    <a class="btn secondary btn-sm" href="#" id="report-link" target="_blank">HTML Report</a>
+    <a class="btn secondary btn-sm" href="#" id="pdf-link" target="_blank">PDF Report</a>
+    <a class="btn secondary btn-sm" href="/api/report.sarif" id="sarif-link">SARIF</a>
+    <a class="btn secondary btn-sm" href="/api/report.csv" id="csv-link">CSV</a>
+  </div>
+</header>
+
+<div id="sim-banner" class="banner hidden">
+  <span>What-if simulation active — no network changes have been made or verified.</span>
+  <button id="sim-clear" class="secondary btn-sm">Exit simulation</button>
+</div>
+<div id="message" class="banner info hidden"></div>
+
+<main class="app-main">
+
+  <!-- SCAN & AUTHORIZED SCOPE BAR -->
+  <section class="panel scan-panel" id="scan-card">
+    <div class="scan-bar">
+      <div class="scan-inputs">
+        <label class="field-label" for="target">Target</label>
+        <input id="target" class="mono-input" placeholder="192.168.56.101 or 192.168.56.0/24">
+        <label class="check-label"><input type="checkbox" id="web" checked> Web checks (httpx + Nuclei)</label>
+        <button id="scan-btn" class="btn-primary">Scan target</button>
+        <button id="discover-btn" class="secondary" title="Discover live hosts on authorized subnet">Discover hosts</button>
+        <button id="intel-btn" class="secondary" title="Refresh CISA KEV and FIRST EPSS cache">Refresh KEV/EPSS</button>
+        <button id="demo-reset-btn" class="secondary hidden" title="Restore all 23 sample lab findings">Reset demo lab</button>
+      </div>
+      <div class="secondary-drawers">
+        <details id="scope-manager" class="drawer">
+          <summary>Scope &amp; Ownership</summary>
+          <div class="drawer-body">
+            <div class="row">
+              <input id="new-private-target" class="mono-input" placeholder="Private CIDR e.g. 10.10.0.0/24">
+              <label class="check-label"><input type="checkbox" id="confirm-auth"> I am authorized to scan this range</label>
+              <button id="add-private-btn" class="secondary btn-sm">Add target</button>
+            </div>
+            <div class="row">
+              <input id="public-target" class="mono-input" placeholder="Public IP/CIDR e.g. 93.184.216.34/32">
+              <button id="challenge-btn" class="secondary btn-sm">Get token</button>
+              <button id="verify-http-btn" class="secondary btn-sm">Verify HTTP</button>
+              <button id="verify-dns-btn" class="secondary btn-sm">Verify DNS TXT</button>
+            </div>
+            <p class="muted" id="challenge-info"></p>
+          </div>
+        </details>
+
+        <details id="aws-drawer" class="drawer">
+          <summary>AWS Audit</summary>
+          <div class="drawer-body">
+            <div class="row">
+              <input id="aws-profile" class="mono-input" placeholder="AWS profile (optional)">
+              <input id="aws-region" class="mono-input" placeholder="us-east-1">
+              <button id="aws-btn" class="secondary btn-sm">Run read-only check</button>
+            </div>
+            <p class="muted">Inspects Security Groups, S3 public access, and IAM configuration via read-only API calls.</p>
+          </div>
+        </details>
+      </div>
+    </div>
+    <div class="scope-strip">
+      <span id="scope-info" class="scope-readout">Authorized Scope: loading...</span>
+      <span class="scope-note">Detection only — no exploitation or brute-force</span>
+    </div>
+    <div id="discovered-hosts" class="discovered-hosts hidden"></div>
+  </section>
+
+  <!-- SUMMARY METRICS -->
+  <section class="summary-grid" aria-label="Summary">
+    <div class="panel summary-card">
+      <div class="panel-title">Summary</div>
+      <div class="kv-row"><span>Total findings</span> <strong id="stat-total" class="mono">0</strong></div>
+      <div class="kv-row"><span>Open</span> <strong id="stat-open" class="mono val-red">0</strong></div>
+      <div class="kv-row"><span>Verified fixed</span> <strong id="stat-fixed" class="mono val-green">0</strong> <small class="muted">(accepted: <span id="stat-accepted">0</span>)</small></div>
+    </div>
+
+    <div class="panel summary-card">
+      <div class="panel-title">Attack Path</div>
+      <div class="kv-row"><span>Mode</span> <strong id="sys-engine" class="mono val-green">Active</strong></div>
+      <div class="kv-row"><span>Est. breach time</span> <strong id="ttc" class="mono ttc">-</strong></div>
+      <div class="kv-row"><span>Priority fixes</span> <strong id="sys-fixes" class="mono val-amber">0</strong></div>
+      <div id="ttc-sub" class="subtext"></div>
+    </div>
+
+    <div class="panel summary-card">
+      <div class="panel-title">Authorized Scope</div>
+      <div class="kv-row"><span>Enforcement</span> <strong id="live-scope" class="mono val-green">Enforced</strong></div>
+      <div class="kv-row"><span>Threat intel</span> <strong id="live-intel" class="mono val-blue">Offline rules</strong></div>
+    </div>
+  </section>
+
+  <!-- ATTACK PATH DOMINO CANVAS -->
+  <section class="panel path-section">
+    <div class="path-header">
+      <div>
+        <span class="panel-title-inline">Attack Path</span>
+        <span id="hud-surveillance-status" class="path-status-text">Ready — run a scan to compute shortest path</span>
+      </div>
+      <div class="path-controls">
+        <div id="before-after" class="before-after"></div>
+        <span id="path-caption" class="path-caption"></span>
+        <button id="play" class="secondary btn-sm">Run path</button>
+      </div>
+    </div>
+    <div class="canvas-wrap">
+      <canvas id="dominoes" width="1120" height="250"></canvas>
+    </div>
+  </section>
+
+  <!-- TWO-COLUMN WORKSPACE: PRIORITY FIXES & FINDINGS -->
+  <section class="workspace-grid">
+
+    <!-- LEFT: FINDINGS TABLE -->
+    <div class="panel findings-panel">
+      <div class="panel-header">
+        <div class="panel-title">Findings</div>
+        <button id="sim-btn" class="secondary btn-sm">Simulate checked fixes</button>
+      </div>
+      <div class="table-wrap">
+        <table id="findings">
+          <thead>
+            <tr>
+              <th>Sim</th>
+              <th>Host</th>
+              <th>Port</th>
+              <th>Service</th>
+              <th>Status</th>
+              <th>Finding / MITRE ATT&amp;CK</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- RIGHT: PRIORITY FIXES & PATH STEPS -->
+    <div class="panel fixes-panel">
+      <div class="panel-title">Priority Fixes</div>
+      <p class="muted hint">Ranked by how much each fix delays or blocks the shortest attack path. Status changes to verified only after a targeted re-scan confirms the exposure is closed.</p>
+      <div id="plan" class="plan-list"></div>
+
+      <div class="steps-section">
+        <div class="sub-header">Shortest Path Steps</div>
+        <ol id="story" class="step-list"></ol>
+      </div>
+    </div>
+
+  </section>
+
+  <!-- MITRE ATT&CK TACTIC COVERAGE MATRIX -->
+  <section class="panel mitre-section" id="mitre-section">
+    <div class="panel-header">
+      <div class="panel-title">MITRE ATT&amp;CK Tactic Matrix</div>
+      <span id="mitre-summary" class="muted">9 tactic phases mapped across active rules and findings</span>
+    </div>
+    <div id="mitre-matrix" class="mitre-grid"></div>
+  </section>
+
+  <!-- ASSESSMENT SNAPSHOTS & SCAN HISTORY DIFFING -->
+  <section class="panel snapshots-section" id="snapshots-section">
+    <div class="panel-header">
+      <div class="panel-title">Assessment Snapshots &amp; History Diff</div>
+      <div class="snapshot-controls">
+        <input id="snapshot-name" class="mono-input" placeholder="Snapshot label e.g. Before Patching">
+        <button id="snapshot-save-btn" class="secondary btn-sm">Save snapshot</button>
+        <label class="select-label">Compare baseline
+          <select id="snapshot-select">
+            <option value="">Select snapshot...</option>
+          </select>
+        </label>
+        <label class="select-label">Against
+          <select id="snapshot-target-select">
+            <option value="">Current State</option>
+          </select>
+        </label>
+        <button id="snapshot-diff-btn" class="secondary btn-sm">Compare</button>
+      </div>
+    </div>
+    <div id="snapshot-diff-view" class="snapshot-diff-view muted">Save or select a snapshot to compare findings, verified fixes, and Time-to-Compromise changes.</div>
+  </section>
+
+</main>
+
+<footer class="app-footer">
+  FallLine &middot; Attack-path analysis and re-scan verification
+</footer>
+
+<script src="/static/app.js"></script>
+</body>
+</html>
+

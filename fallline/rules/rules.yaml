@@ -1,0 +1,490 @@
+# FallLine knowledge base.
+#
+# Each rule turns a detected exposure into: an ATT&CK technique, a plain-language
+# explanation, how long an attacker needs (effort_minutes, a rough estimate),
+# how long the fix takes (fix_minutes) and what to do.
+#
+# Rules are tried in order and the FIRST match wins, so put specific rules
+# (product/version) before generic ones (port/service only).
+#
+# gives:  foothold = attacker gets control of the host
+#         data     = attacker reaches data directly (the end goal)
+# stage:  initial  = reachable by an outside attacker
+#         lateral  = only reachable once the attacker is already inside the network
+#
+# effort_minutes values are estimates for ordering fixes, not measurements.
+
+rules:
+  # ---- specific, version-based (classic lab targets and real legacy systems) ----
+  - id: vsftpd-234-backdoor
+    title: vsftpd 2.3.4 (contains a known backdoor)
+    match: {product_regex: "vsftpd", version_regex: "^2\\.3\\.4$"}
+    severity: critical
+    technique: {id: T1190, name: Exploit Public-Facing Application, tactic: Initial Access}
+    gives: foothold
+    stage: initial
+    effort_minutes: 5
+    fix_minutes: 15
+    cves: [CVE-2011-2523]
+    why: This FTP server version shipped with a hidden backdoor that gives an attacker a command shell.
+    remediation: Upgrade vsftpd to a current version from your distribution, or remove FTP if it is not needed.
+    fix_command: "sudo systemctl disable --now vsftpd && sudo apt-get install --only-upgrade -y vsftpd"
+
+  - id: samba-usermap-script
+    title: Samba 3.0.x (remote command execution)
+    match: {product_regex: "samba", version_regex: "^3\\.0\\.(2[0-5]|1\\d|\\d)\\b"}
+    severity: critical
+    technique: {id: T1210, name: Exploitation of Remote Services, tactic: Lateral Movement}
+    gives: foothold
+    stage: initial
+    effort_minutes: 8
+    fix_minutes: 30
+    cves: [CVE-2007-2447]
+    why: Old Samba file-sharing versions can be tricked into running commands sent over the network.
+    remediation: Upgrade Samba to a supported release and block SMB (445) from untrusted networks.
+    fix_command: "sudo ufw deny 445/tcp && sudo ufw deny 139/tcp && sudo apt-get install --only-upgrade -y samba"
+
+  - id: unrealircd-backdoor
+    title: UnrealIRCd 3.2.8.1 (contains a known backdoor)
+    match: {product_regex: "unreal", version_regex: "^3\\.2\\.8\\.1$"}
+    severity: critical
+    technique: {id: T1190, name: Exploit Public-Facing Application, tactic: Initial Access}
+    gives: foothold
+    stage: initial
+    effort_minutes: 6
+    fix_minutes: 20
+    cves: [CVE-2010-2075]
+    why: A tampered release of this chat server lets anyone run commands on the host.
+    remediation: Remove the service or install a clean, current UnrealIRCd build.
+    fix_command: "sudo systemctl stop unrealircd && sudo ufw deny 6667/tcp"
+
+  - id: distccd-rce
+    title: distccd (remote command execution)
+    match: {service_regex: "distcc", product_regex: "distcc"}
+    severity: critical
+    technique: {id: T1210, name: Exploitation of Remote Services, tactic: Lateral Movement}
+    gives: foothold
+    stage: initial
+    effort_minutes: 6
+    fix_minutes: 10
+    cves: [CVE-2004-2687]
+    why: The distributed-compiler service runs whatever commands it is sent.
+    remediation: Stop distccd or restrict it to trusted build hosts with --allow.
+    fix_command: "sudo systemctl disable --now distcc && sudo ufw deny 3632/tcp"
+
+  - id: tomcat-ajp-ghostcat
+    title: Apache Tomcat AJP connector exposed (Ghostcat)
+    match: {ports: [8009], service_regex: "ajp"}
+    severity: high
+    technique: {id: T1190, name: Exploit Public-Facing Application, tactic: Initial Access}
+    gives: foothold
+    stage: initial
+    effort_minutes: 25
+    fix_minutes: 15
+    cves: [CVE-2020-1938]
+    why: The AJP port can let outsiders read application files and sometimes run code.
+    remediation: Disable the AJP connector or bind it to localhost, and update Tomcat.
+    fix_command: "sudo ufw deny 8009/tcp && sudo sed -i 's/address=\"0.0.0.0\"/address=\"127.0.0.1\"/' /etc/tomcat*/server.xml"
+
+  - id: proftpd-old
+    title: ProFTPD 1.3.1 (old version with known flaws)
+    match: {product_regex: "proftpd", version_regex: "^1\\.3\\.[0-2]"}
+    severity: high
+    technique: {id: T1190, name: Exploit Public-Facing Application, tactic: Initial Access}
+    gives: foothold
+    stage: initial
+    effort_minutes: 30
+    fix_minutes: 20
+    cves: []
+    why: This FTP server version is years out of support and has published weaknesses.
+    remediation: Upgrade ProFTPD to a supported release.
+    fix_command: "sudo systemctl disable --now proftpd && sudo apt-get install --only-upgrade -y proftpd-basic"
+
+  - id: apache-old
+    title: Apache httpd 2.2.x (end of life)
+    match: {product_regex: "apache httpd", version_regex: "^2\\.[0-2]\\."}
+    severity: high
+    technique: {id: T1190, name: Exploit Public-Facing Application, tactic: Initial Access}
+    gives: foothold
+    stage: initial
+    effort_minutes: 45
+    fix_minutes: 30
+    cves: []
+    why: This web server version no longer receives security fixes.
+    remediation: Upgrade Apache httpd to a supported 2.4.x release.
+    fix_command: "sudo apt-get update && sudo apt-get install --only-upgrade -y apache2"
+
+  - id: openssh-old
+    title: OpenSSH older than 7.0
+    match: {product_regex: "openssh", version_regex: "^([0-6]\\.)"}
+    severity: medium
+    technique: {id: T1021.004, name: "Remote Services: SSH", tactic: Lateral Movement}
+    gives: foothold
+    stage: lateral
+    effort_minutes: 120
+    fix_minutes: 20
+    cves: []
+    why: Old SSH versions have weak crypto and known bugs, which help an attacker who already has network access.
+    remediation: Upgrade OpenSSH and disable password logins in favour of keys.
+    fix_command: "sudo apt-get install --only-upgrade -y openssh-server && sudo sed -i 's/^#*PasswordAuthentication.*/PasswordAuthentication no/' /etc/ssh/sshd_config && sudo systemctl reload sshd"
+
+  # ---- remote-access services that should not be exposed ----
+  - id: telnet-exposed
+    title: Telnet exposed (unencrypted remote login)
+    match: {ports: [23], service_regex: "telnet"}
+    severity: high
+    technique: {id: T1021, name: Remote Services, tactic: Lateral Movement}
+    gives: foothold
+    stage: initial
+    effort_minutes: 40
+    fix_minutes: 5
+    cves: []
+    why: Telnet sends passwords in clear text and is a common way into poorly protected devices.
+    remediation: Disable Telnet and use SSH instead.
+    fix_command: "sudo systemctl disable --now inetd openbsd-inetd telnet.socket && sudo ufw deny 23/tcp"
+
+  - id: bindshell-1524
+    title: Open shell listener (port 1524)
+    match: {ports: [1524]}
+    severity: critical
+    technique: {id: T1059, name: Command and Scripting Interpreter, tactic: Execution}
+    gives: foothold
+    stage: initial
+    effort_minutes: 2
+    fix_minutes: 5
+    cves: []
+    why: A command shell is listening on the network with no login.
+    remediation: Find and stop the process listening on this port and investigate how it got there.
+    fix_command: "sudo fuser -k 1524/tcp && sudo ufw deny 1524/tcp"
+
+  - id: r-services-exposed
+    title: Legacy r-services (rexec/rlogin/rsh) exposed
+    match: {ports: [512, 513, 514], service_regex: "^(exec|login|shell|rsh|rlogin)$"}
+    severity: critical
+    technique: {id: T1021, name: Remote Services, tactic: Lateral Movement}
+    gives: foothold
+    stage: initial
+    effort_minutes: 15
+    fix_minutes: 5
+    cves: []
+    why: These ancient remote-login services trust the network and often need no password.
+    remediation: Disable rexec, rlogin and rsh and use SSH.
+    fix_command: "sudo systemctl disable --now rsh.socket rlogin.socket rexec.socket && sudo ufw deny 512:514/tcp"
+
+  - id: rdp-exposed
+    title: Remote Desktop (RDP) exposed
+    match: {ports: [3389], service_regex: "ms-wbt|rdp"}
+    severity: high
+    technique: {id: T1021.001, name: "Remote Services: RDP", tactic: Lateral Movement}
+    gives: foothold
+    stage: initial
+    effort_minutes: 90
+    fix_minutes: 15
+    cves: []
+    why: Exposed RDP is a top entry point for ransomware through stolen or guessed passwords.
+    remediation: Put RDP behind a VPN or gateway, require MFA and network-level authentication.
+    fix_command: "sudo ufw deny 3389/tcp"
+
+  - id: vnc-exposed
+    title: VNC remote screen exposed
+    match: {ports: [5900, 5901], service_regex: "vnc"}
+    severity: high
+    technique: {id: T1021.005, name: "Remote Services: VNC", tactic: Lateral Movement}
+    gives: foothold
+    stage: initial
+    effort_minutes: 60
+    fix_minutes: 10
+    cves: []
+    why: VNC often uses weak or no passwords and shows the whole desktop to whoever connects.
+    remediation: Tunnel VNC over SSH or a VPN and set a strong password.
+    fix_command: "sudo ufw deny 5900:5901/tcp"
+
+  - id: docker-api-exposed
+    title: Docker API exposed without authentication
+    match: {ports: [2375]}
+    severity: critical
+    technique: {id: T1610, name: Deploy Container, tactic: Execution}
+    gives: foothold
+    stage: initial
+    effort_minutes: 5
+    fix_minutes: 10
+    cves: []
+    why: Anyone who can reach this port can start containers and take over the host.
+    remediation: Disable the plain TCP socket or protect it with TLS client certificates.
+    fix_command: "sudo ufw deny 2375/tcp && sudo systemctl restart docker"
+
+  - id: smb-exposed
+    title: SMB file sharing reachable
+    match: {ports: [139, 445], service_regex: "netbios|microsoft-ds|smb"}
+    severity: medium
+    technique: {id: T1021.002, name: "Remote Services: SMB/Windows Admin Shares", tactic: Lateral Movement}
+    gives: foothold
+    stage: lateral
+    effort_minutes: 150
+    fix_minutes: 15
+    cves: []
+    why: SMB is how attackers move between machines once they are inside the network.
+    remediation: Block SMB at the firewall except between machines that need it and disable SMBv1.
+    fix_command: "sudo ufw deny 139/tcp && sudo ufw deny 445/tcp"
+
+  - id: nfs-exposed
+    title: NFS file shares reachable
+    match: {ports: [2049], service_regex: "nfs"}
+    severity: high
+    technique: {id: T1039, name: Data from Network Shared Drive, tactic: Collection}
+    gives: data
+    stage: lateral
+    effort_minutes: 45
+    fix_minutes: 15
+    cves: []
+    why: Misconfigured NFS exports let other machines read or write files without a password.
+    remediation: Restrict exports to named hosts and avoid no_root_squash.
+    fix_command: "sudo exportfs -ua && sudo ufw deny 2049/tcp"
+
+  - id: java-rmi-exposed
+    title: Java RMI registry exposed
+    match: {ports: [1099], service_regex: "rmi"}
+    severity: high
+    technique: {id: T1190, name: Exploit Public-Facing Application, tactic: Initial Access}
+    gives: foothold
+    stage: initial
+    effort_minutes: 40
+    fix_minutes: 20
+    cves: []
+    why: Misconfigured Java RMI can load attacker-supplied code.
+    remediation: Firewall the RMI port and update the Java application.
+    fix_command: "sudo ufw deny 1099/tcp"
+
+  - id: ftp-exposed
+    title: FTP exposed (unencrypted file transfer)
+    match: {ports: [21], service_regex: "ftp"}
+    severity: medium
+    technique: {id: T1078, name: Valid Accounts, tactic: Initial Access}
+    gives: foothold
+    stage: initial
+    effort_minutes: 180
+    fix_minutes: 10
+    cves: []
+    why: FTP sends passwords in clear text and is often left with weak accounts.
+    remediation: Replace FTP with SFTP or restrict it to a trusted network.
+    fix_command: "sudo systemctl disable --now vsftpd proftpd && sudo ufw deny 21/tcp"
+
+  - id: ssh-exposed
+    title: SSH reachable
+    match: {ports: [22], service_regex: "ssh"}
+    severity: low
+    technique: {id: T1021.004, name: "Remote Services: SSH", tactic: Lateral Movement}
+    gives: foothold
+    stage: lateral
+    effort_minutes: 600
+    fix_minutes: 10
+    cves: []
+    why: SSH is normal, but it is a target for password guessing if it allows password logins.
+    remediation: Use key-only logins, disable root login and limit who can reach it.
+    fix_command: "sudo sed -i 's/^#*PermitRootLogin.*/PermitRootLogin no/; s/^#*PasswordAuthentication.*/PasswordAuthentication no/' /etc/ssh/sshd_config && sudo systemctl reload sshd"
+
+  # ---- databases and data stores ----
+  - id: db-exposed
+    title: Database reachable over the network
+    match: {ports: [3306, 5432, 1433, 1521, 27017, 6379, 9200, 5984],
+            service_regex: "mysql|postgres|ms-sql|mssql|oracle|mongo|redis|elastic|couch"}
+    severity: high
+    technique: {id: T1190, name: Exploit Public-Facing Application, tactic: Initial Access}
+    gives: data
+    stage: initial
+    effort_minutes: 60
+    fix_minutes: 15
+    cves: []
+    why: Databases should only talk to the application servers that need them, not everyone.
+    remediation: Bind the database to localhost or an internal subnet and require strong authentication.
+    fix_command: "sudo ufw deny 3306/tcp && sudo ufw deny 5432/tcp && sudo ufw deny 6379/tcp && sudo ufw deny 27017/tcp"
+
+  # ---- mail / dns / other infrastructure (low value alone) ----
+  - id: smtp-exposed
+    title: Mail server (SMTP) reachable
+    match: {ports: [25], service_regex: "smtp"}
+    severity: low
+    technique: {id: T1566, name: Phishing, tactic: Initial Access}
+    gives: foothold
+    stage: lateral
+    effort_minutes: 720
+    fix_minutes: 20
+    cves: []
+    why: Mail servers can be abused for relaying and user enumeration if misconfigured.
+    remediation: Disable open relay and user-enumeration commands (VRFY, EXPN).
+    fix_command: "sudo postconf -e 'inet_interfaces = loopback-only' && sudo postconf -e 'disable_vrfy_command = yes' && sudo systemctl reload postfix"
+
+  # ---- persistence, privesc, credential access, discovery, impact ----
+  - id: cron-persistence-writable
+    title: Writable cron job or scheduled task configuration
+    match: {check_regex: "^cron-persistence-writable$"}
+    severity: high
+    technique: {id: T1053.003, name: "Scheduled Task/Job: Cron", tactic: Persistence}
+    gives: foothold
+    stage: lateral
+    effort_minutes: 35
+    fix_minutes: 10
+    cves: []
+    why: World-writable cron scripts allow attackers to maintain persistent execution across reboots.
+    remediation: Restrict ownership and permissions on /etc/crontab and /etc/cron.* directories to root.
+    fix_command: "sudo chown root:root /etc/crontab && sudo chmod 600 /etc/crontab"
+
+  - id: sudo-nopasswd-privesc
+    title: Unauthenticated privilege escalation vector (sudo/SUID misconfiguration)
+    match: {check_regex: "^sudo-nopasswd-privesc$"}
+    severity: high
+    technique: {id: T1548.003, name: "Abuse Elevation Control Mechanism: Sudo and Sudo Caching", tactic: Privilege Escalation}
+    gives: foothold
+    stage: lateral
+    effort_minutes: 20
+    fix_minutes: 10
+    cves: []
+    why: Overly permissive sudoers rules or SUID binaries allow a low-privileged foothold to become root.
+    remediation: Remove NOPASSWD entries for non-administrative accounts and audit SUID binaries.
+    fix_command: "sudo sed -i '/NOPASSWD/d' /etc/sudoers && sudo chmod u-s /usr/bin/find"
+
+  - id: exposed-credentials-file
+    title: Exposed credentials or environment configuration file
+    match: {check_regex: "^exposed-credentials-file$"}
+    severity: high
+    technique: {id: T1552.001, name: "Unsecured Credentials: Credentials In Files", tactic: Credential Access}
+    gives: data
+    stage: initial
+    effort_minutes: 15
+    fix_minutes: 10
+    cves: []
+    why: Cleartext configuration files (.env, credentials, backup configs) expose database and API secrets.
+    remediation: Remove credential files from the web root and rotate any exposed secrets immediately.
+    fix_command: "sudo chmod 600 /var/www/html/.env && sudo rm -f /var/www/html/.env.bak"
+
+  - id: snmp-public-community
+    title: SNMP service exposed with default community string
+    match: {ports: [161], service_regex: "^snmp$"}
+    severity: medium
+    technique: {id: T1046, name: Network Service Discovery, tactic: Discovery}
+    gives: foothold
+    stage: initial
+    effort_minutes: 90
+    fix_minutes: 10
+    cves: []
+    why: Exposed SNMP leaks system routing tables, network interfaces, and running process lists.
+    remediation: Disable SNMP if unused, restrict to management hosts, and use SNMPv3 authentication.
+    fix_command: "sudo systemctl disable --now snmpd && sudo ufw deny 161/udp"
+
+  - id: memcached-amplification-exposed
+    title: Memcached exposed without authentication
+    match: {ports: [11211], service_regex: "^memcached$"}
+    severity: high
+    technique: {id: T1498.002, name: "Network Denial of Service: Reflection Amplification", tactic: Impact}
+    gives: data
+    stage: initial
+    effort_minutes: 30
+    fix_minutes: 10
+    cves: []
+    why: Exposed Memcached allows cache data extraction and reflection denial-of-service amplification.
+    remediation: Bind Memcached to 127.0.0.1 and block port 11211 at the firewall.
+    fix_command: "sudo sed -i 's/^-l .*/-l 127.0.0.1/' /etc/memcached.conf && sudo systemctl restart memcached && sudo ufw deny 11211/tcp"
+
+  # ---- web exposure (from httpx and Nuclei) ----
+  - id: web-admin-panel
+    title: Web admin panel reachable
+    match: {check_regex: "^web-admin-panel$"}
+    severity: high
+    technique: {id: T1190, name: Exploit Public-Facing Application, tactic: Initial Access}
+    gives: foothold
+    stage: initial
+    effort_minutes: 75
+    fix_minutes: 20
+    cves: []
+    why: Admin pages exposed to the network invite password guessing and exploitation.
+    remediation: Restrict the admin panel to a management network or VPN and enforce MFA.
+    fix_command: "sudo a2disconf phpmyadmin && sudo systemctl reload apache2"
+
+  - id: web-missing-headers
+    title: Web app missing browser security headers
+    match: {check_regex: "^web-missing-headers$"}
+    severity: low
+    technique: {id: T1189, name: Drive-by Compromise, tactic: Initial Access}
+    gives: foothold
+    stage: lateral
+    effort_minutes: 900
+    fix_minutes: 15
+    cves: []
+    why: Missing headers make cross-site scripting and clickjacking easier.
+    remediation: Add Content-Security-Policy, X-Frame-Options and X-Content-Type-Options headers.
+    fix_command: "sudo a2enmod headers && sudo systemctl reload apache2"
+
+  - id: nuclei-exposure
+    title: Web exposure or misconfiguration found by Nuclei
+    match: {source: nuclei, check_regex: ".+"}
+    severity: medium
+    technique: {id: T1190, name: Exploit Public-Facing Application, tactic: Initial Access}
+    gives: foothold
+    stage: initial
+    effort_minutes: 60
+    effort_by_severity: {critical: 10, high: 25, medium: 60, low: 240}
+    skip_severities: [info, unknown, ""]
+    fix_minutes: 25
+    cves: []
+    why: A safe, non-intrusive check found a web exposure or misconfiguration.
+    remediation: Follow the template's remediation advice; remove the exposed file or setting.
+    fix_command: "sudo chmod -R o-rwx /var/www/html/.git /var/www/html/.env"
+
+  - id: http-exposed
+    title: Web server reachable
+    match: {ports: [80, 443, 8080, 8180, 8000, 8443], service_regex: "http"}
+    severity: low
+    technique: {id: T1190, name: Exploit Public-Facing Application, tactic: Initial Access}
+    gives: foothold
+    stage: initial
+    effort_minutes: 480
+    fix_minutes: 30
+    cves: []
+    why: Every web application is a possible entry point; unpatched or custom code is often the weak spot.
+    remediation: Keep the web stack patched, remove unused apps and put a WAF or authentication in front.
+    fix_command: "sudo ufw limit 80/tcp && sudo ufw limit 443/tcp"
+
+  # ---- AWS (v2 read-only audit) ----
+  - id: aws-sg-open-admin
+    title: AWS security group open to the world on an admin port
+    match: {source: aws, check_regex: "^aws-sg-open-admin"}
+    severity: high
+    technique: {id: T1133, name: External Remote Services, tactic: Initial Access}
+    gives: foothold
+    stage: initial
+    effort_minutes: 60
+    fix_minutes: 10
+    cves: []
+    why: SSH/RDP/database ports open to 0.0.0.0/0 are scanned and attacked within minutes of going live.
+    remediation: Restrict the rule to your office/VPN CIDR or use SSM Session Manager.
+    fix_command: "aws ec2 revoke-security-group-ingress --group-id <sg-id> --protocol tcp --port 22 --cidr 0.0.0.0/0"
+
+  - id: aws-s3-public
+    title: S3 bucket may be publicly accessible
+    match: {source: aws, check_regex: "^aws-s3-public"}
+    severity: high
+    technique: {id: T1530, name: Data from Cloud Storage, tactic: Collection}
+    gives: data
+    stage: initial
+    effort_minutes: 10
+    fix_minutes: 10
+    cves: []
+    why: Public buckets are a leading cause of cloud data leaks.
+    remediation: Enable S3 Block Public Access and remove public ACLs/policies.
+    fix_command: "aws s3api put-public-access-block --bucket <bucket-name> --public-access-block-configuration BlockPublicAcls=true,IgnorePublicAcls=true,BlockPublicPolicy=true,RestrictPublicBuckets=true"
+
+  - id: aws-iam-risk
+    title: Risky AWS IAM setting
+    match: {source: aws, check_regex: "^aws-iam-"}
+    severity: high
+    technique: {id: T1078.004, name: "Valid Accounts: Cloud Accounts", tactic: Initial Access}
+    gives: foothold
+    stage: initial
+    effort_minutes: 240
+    fix_minutes: 10
+    cves: []
+    why: Accounts without MFA or with old access keys are the easiest way into a cloud account.
+    remediation: Enable MFA on the account and rotate or delete old access keys.
+    fix_command: "aws iam update-access-key --user-name <user> --access-key-id <key-id> --status Inactive"
+
+

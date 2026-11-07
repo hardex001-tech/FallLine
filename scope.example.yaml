@@ -1,0 +1,7 @@
+# Copy this file to scope.yaml and edit it.
+# FallLine refuses to scan anything not covered here.
+authorized_by: "Your Name (owner of this lab)"
+i_confirm_authorization: true   # I own these systems or have written permission to test them
+
+targets:
+  - 192.168.56.0/24   # VirtualBox host-only network (example)

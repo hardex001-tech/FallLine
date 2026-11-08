@@ -1,4 +1,5 @@
 """Command line: python -m fallline <command> ..."""
+
 from __future__ import annotations
 
 import argparse
@@ -38,20 +39,26 @@ def _stores(args):
 def print_assessment(a: dict) -> None:
     print(f"\n=== Attack path ({a['perspective']} attacker) ===")
     if a["ttc_minutes"] is None:
-        print("No attack path found with the open exposures." if a["counts"]["open"]
-              else "No findings yet. Run a scan first.")
+        print(
+            "No attack path found with the open exposures."
+            if a["counts"]["open"]
+            else "No findings yet. Run a scan first."
+        )
     else:
         print(f"Time to compromise: {a['ttc_human']}")
         for i, s in enumerate(a["path"], 1):
             where = f" (port {s['port']})" if s.get("port") else ""
-            print(f"  {i}. {s['from']} -> {s['to']}: {s['title']}{where}"
-                  f"  [{s['technique']}, ~{round(s['minutes'])} min]")
+            print(
+                f"  {i}. {s['from']} -> {s['to']}: {s['title']}{where}  [{s['technique']}, ~{round(s['minutes'])} min]"
+            )
     if a["fix_plan"]:
         print("\n=== Fix this first ===")
         for i, p in enumerate(a["fix_plan"], 1):
             after = "no path left" if p["ttc_after"] is None else f"~{round(p['ttc_after'])} min"
-            print(f"  {i}. {p['title']} on {p['host']}:{p['port'] or '-'}  "
-                  f"(fix ~{round(p['fix_minutes'])} min, attacker time after: {after})")
+            print(
+                f"  {i}. {p['title']} on {p['host']}:{p['port'] or '-'}  "
+                f"(fix ~{round(p['fix_minutes'])} min, attacker time after: {after})"
+            )
             print(f"     {p['remediation']}")
             if p.get("fix_command"):
                 print(f"     cmd: {p['fix_command']}")
@@ -66,16 +73,19 @@ def cmd_scan(args) -> int:
     store, kb, intel = _stores(args)
     try:
         scope = load_scope(args.scope, audit_log=args.audit_log)
-        res = run_scan(scope, store, kb, RealToolkit(), args.target, user=args.user,
-                       top_ports=args.top_ports, web=not args.no_web)
+        res = run_scan(
+            scope, store, kb, RealToolkit(), args.target, user=args.user, top_ports=args.top_ports, web=not args.no_web
+        )
     except ScopeError as exc:
         print(f"REFUSED: {exc}", file=sys.stderr)
         return 2
     except (RuntimeError, NmapError, NaabuError) as exc:
         print(f"Scan failed: {exc}", file=sys.stderr)
         return 3
-    print(f"Engine: {res['engine']}   Target: {res['target']}   Findings: {res['found']} "
-          f"({res['new']} new, {res['reopened']} reopened)")
+    print(
+        f"Engine: {res['engine']}   Target: {res['target']}   Findings: {res['found']} "
+        f"({res['new']} new, {res['reopened']} reopened)"
+    )
     for w in res["warnings"]:
         print(f"  note: {w}")
     out_dir = Path(args.output_dir)
@@ -198,8 +208,9 @@ def cmd_verify(args) -> int:
     store, kb, _ = _stores(args)
     try:
         scope = load_scope(args.scope, audit_log=args.audit_log)
-        res = verify_fix(store, kb, scope, RealToolkit(aws_profile=args.profile,
-                                                        aws_region=args.region), args.key, args.user)
+        res = verify_fix(
+            store, kb, scope, RealToolkit(aws_profile=args.profile, aws_region=args.region), args.key, args.user
+        )
     except ScopeError as exc:
         print(f"REFUSED: {exc}", file=sys.stderr)
         return 2
@@ -234,8 +245,7 @@ def cmd_reopen(args) -> int:
 
 def cmd_intel(args) -> int:
     store, kb, intel = _stores(args)
-    cves = [c for r in store.all() for c in r["finding"].cves] + \
-           [c for rule in kb.rules for c in rule.cves]
+    cves = [c for r in store.all() for c in r["finding"].cves] + [c for rule in kb.rules for c in rule.cves]
     print(intel.update(cves))
     return 0
 
@@ -294,13 +304,16 @@ def cmd_serve(args) -> int:
     import uvicorn
 
     from .app import create_app
+
     if args.demo:
         from .demo import FakeToolkit
+
         demo_dir = Path("data/demo")
         demo_dir.mkdir(parents=True, exist_ok=True)
         (demo_dir / "scope.yaml").write_text(
-            'authorized_by: "DEMO (fake network)"\ni_confirm_authorization: true\n'
-            "targets:\n  - 192.168.56.0/24\n", encoding="utf-8")
+            'authorized_by: "DEMO (fake network)"\ni_confirm_authorization: true\ntargets:\n  - 192.168.56.0/24\n',
+            encoding="utf-8",
+        )
         db = demo_dir / "demo.db"
         if db.exists():
             try:
@@ -314,24 +327,114 @@ def cmd_serve(args) -> int:
             run_scan(scope, store, kb, toolkit, "192.168.56.0/24")
         if not store.list_snapshots():
             create_snapshot(store, kb, None, "Baseline (Initial Scan)")
-        app = create_app(demo_dir / "scope.yaml", db, audit_log=demo_dir / "audit.log",
-                         toolkit=toolkit, demo=True)
+        app = create_app(demo_dir / "scope.yaml", db, audit_log=demo_dir / "audit.log", toolkit=toolkit, demo=True)
     else:
         if not args.scope:
             print("--scope is required (or use --demo)", file=sys.stderr)
             return 2
         app = create_app(args.scope, args.db, audit_log=args.audit_log)
     if args.host not in ("127.0.0.1", "localhost", "::1"):
-        print("WARNING: the dashboard has no login. Binding to a non-local address exposes it to "
-              "your network. Put it behind a VPN or reverse proxy with authentication.")
+        print(
+            "WARNING: the dashboard has no login. Binding to a non-local address exposes it to "
+            "your network. Put it behind a VPN or reverse proxy with authentication."
+        )
     print(f"FallLine dashboard: http://{args.host}:{args.port}")
     uvicorn.run(app, host=args.host, port=args.port, log_level="warning")
     return 0
 
 
+def cmd_audit_mail(args) -> int:
+    from .mail_audit import audit_domain_email_security
+
+    res = audit_domain_email_security(args.domain)
+    print(f"\n[+] Email & Domain Security Posture for: {res.domain}")
+    print(f"    Spoofable by Attackers: {'YES (HIGH RISK)' if res.spoofable else 'NO (PROTECTED)'}")
+    print(f"    Posture Score: {res.risk_score}/100 ({res.risk_level})")
+    print(f"    SPF Record: {res.spf_record or 'None'}")
+    print(f"    DMARC Record: {res.dmarc_record or 'None'}")
+    print(f"\n[!] Findings ({len(res.findings)}):")
+    for f in res.findings:
+        print(f"    [{f.status}] {f.title}: {f.description}")
+        print(f"        Remediation TXT: {f.remediation_txt}")
+    return 0
+
+
+def cmd_audit_web(args) -> int:
+    from .scope import ScopeError
+    from .web_audit import audit_web_exposure
+
+    try:
+        res = audit_web_exposure(args.host, port=args.port, use_ssl=args.ssl)
+    except ScopeError as exc:
+        print(f"REFUSED: {exc}", file=sys.stderr)
+        return 2
+    print(f"\n[+] Web & Cloud Exposure Audit for: {res.target}:{res.port}")
+    print(f"[!] Total Findings: {len(res.findings)}")
+    for f in res.findings:
+        print(f"    [{f.severity}] {f.title}")
+        print(f"        Evidence: {f.evidence}")
+        print(f"        Remediation: {f.remediation}")
+    return 0
+
+
+def cmd_ingest_ad(args) -> int:
+    from .ad_ingest import ingest_bloodhound_file_or_data
+
+    try:
+        res = ingest_bloodhound_file_or_data(args.file)
+    except Exception as exc:
+        print(f"Failed to ingest BloodHound data: {exc}", file=sys.stderr)
+        return 2
+    print("\n[+] Active Directory Privilege Escalation Ingestion")
+    print(
+        f"    Nodes: {res.nodes_count} (Users: {res.users_count}, Computers: {res.computers_count}, Groups: {res.groups_count})"
+    )
+    print(f"    Edges: {res.edges_count}")
+    print(f"    Crown Jewels Identified: {len(res.crown_jewels)}")
+    print(f"\n[!] Critical Privilege Escalation Paths ({len(res.attack_paths)}):")
+    for i, p in enumerate(res.attack_paths[:5], 1):
+        print(
+            f"\n  Path #{i}: {p.starting_account} -> {p.target_crown_jewel} (Est. TTC: {p.total_ttc_minutes:.0f} mins)"
+        )
+        for s in p.steps:
+            print(f"    -> {s.description}")
+        if p.choke_point_step:
+            print(
+                f"  [CHOKE POINT]: {p.choke_point_step.source} --{p.choke_point_step.relationship}--> {p.choke_point_step.target}"
+            )
+            print(f"  Remediation PowerShell:\n    {p.remediation_command}")
+    return 0
+
+
+def cmd_export_iac(args) -> int:
+    from .iac_generator import generate_ansible_playbook, generate_terraform_policy
+
+    store, kb, intel = _stores(args)
+    records = store.all()
+    classified = [r for r in records if r["status"] == "OPEN"]
+    findings = [
+        {"port": r["finding"].port, "service": r["finding"].service, "title": r["finding"].title} for r in classified
+    ]
+    fmt = (args.format or "ansible").lower()
+    out = Path(args.output) if args.output else None
+    if fmt == "terraform":
+        code = generate_terraform_policy(findings)
+        if not out:
+            out = Path("data/remediation.tf")
+    else:
+        code = generate_ansible_playbook(findings)
+        if not out:
+            out = Path("data/fallline_remediation.yml")
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(code, encoding="utf-8")
+    print(f"[+] Exported {fmt.upper()} remediation to: {out}")
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(prog="fallline", description="Defensive attack-path analysis. "
-                                     "Authorized targets only.")
+    parser = argparse.ArgumentParser(
+        prog="fallline", description="Defensive attack-path analysis. Authorized targets only."
+    )
     sub = parser.add_subparsers(dest="command", required=True)
 
     def common(p, scope=False, perspective=False):
@@ -353,10 +456,8 @@ def main(argv: list[str] | None = None) -> int:
 
     p = sub.add_parser("discover", help="discover active hosts on an authorized subnet")
     common(p, scope=True)
-    p.add_argument("target_pos", nargs="?", default=None, metavar="target_cidr",
-                   help="authorized subnet CIDR or IP")
-    p.add_argument("--target", dest="target_opt", default=None,
-                   help="authorized subnet CIDR or IP")
+    p.add_argument("target_pos", nargs="?", default=None, metavar="target_cidr", help="authorized subnet CIDR or IP")
+    p.add_argument("--target", dest="target_opt", default=None, help="authorized subnet CIDR or IP")
     p.set_defaults(func=cmd_discover)
 
     p = sub.add_parser("paths", help="show the attack path from stored findings")
@@ -373,8 +474,13 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("arg", nargs="?", default=None, help="snapshot name (for save) or base id (for diff)")
     p.add_argument("--name", default=None, help="snapshot name for save")
     p.add_argument("--base", type=int, default=None, help="base snapshot id for diff")
-    p.add_argument("--target", dest="target_snap", type=int, default=None,
-                   help="optional target snapshot id for diff (defaults to current state)")
+    p.add_argument(
+        "--target",
+        dest="target_snap",
+        type=int,
+        default=None,
+        help="optional target snapshot id for diff (defaults to current state)",
+    )
     p.set_defaults(func=cmd_snapshot)
 
     p = sub.add_parser("verify", help="re-scan ONE finding and mark it fixed only if gone")
@@ -403,8 +509,9 @@ def main(argv: list[str] | None = None) -> int:
     common(p, perspective=True)
     p.add_argument("--scope", default=None)
     p.add_argument("--output", default="data/report.html")
-    p.add_argument("--format", choices=("html", "pdf", "sarif", "csv"), default=None,
-                   help="export format (html, pdf, sarif, csv)")
+    p.add_argument(
+        "--format", choices=("html", "pdf", "sarif", "csv"), default=None, help="export format (html, pdf, sarif, csv)"
+    )
     p.add_argument("--pdf", action="store_true", help="write PDF report instead of HTML")
     p.set_defaults(func=cmd_report)
 
@@ -423,6 +530,26 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--demo", action="store_true", help="fake network with sample data")
     p.set_defaults(func=cmd_serve)
 
+    p = sub.add_parser("audit-mail", help="audit domain email security posture (SPF & DMARC spoofing)")
+    p.add_argument("domain", help="target domain name (e.g. acme-corp.com)")
+    p.set_defaults(func=cmd_audit_mail)
+
+    p = sub.add_parser("audit-web", help="audit web application for exposed .env, .git, and security headers")
+    p.add_argument("host", help="target authorized host or IP")
+    p.add_argument("--port", type=int, default=80, help="port (default 80)")
+    p.add_argument("--ssl", action="store_true", help="use HTTPS")
+    p.set_defaults(func=cmd_audit_web)
+
+    p = sub.add_parser("ingest-ad", help="ingest BloodHound Active Directory JSON export and find choke points")
+    p.add_argument("file", help="path to BloodHound JSON export file")
+    p.set_defaults(func=cmd_ingest_ad)
+
+    p = sub.add_parser("export-iac", help="export Ansible playbook or Terraform policy for verified choke points")
+    common(p)
+    p.add_argument("--format", choices=("ansible", "terraform"), default="ansible", help="remediation format")
+    p.add_argument("--output", default=None, help="output file path")
+    p.set_defaults(func=cmd_export_iac)
+
     parser.add_argument("--no-banner", action="store_true", help="suppress startup ASCII banner")
     args = parser.parse_args(argv)
     if not getattr(args, "no_banner", False) and args.command in ("serve", "scan", "paths", "discover", "mitre"):
@@ -432,4 +559,3 @@ def main(argv: list[str] | None = None) -> int:
 
 if __name__ == "__main__":
     sys.exit(main())
-

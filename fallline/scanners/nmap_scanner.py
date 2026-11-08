@@ -5,6 +5,7 @@ The command is built as a list and run without a shell, so a target string
 can never inject extra commands. The target is validated by the scope
 guard before this module is called.
 """
+
 from __future__ import annotations
 
 import shutil
@@ -25,11 +26,13 @@ def nmap_available() -> bool:
 def build_command(target: str, top_ports: int = 1000) -> list[str]:
     return [
         "nmap",
-        "-sV",                      # service/version detection
-        "--top-ports", str(top_ports),
-        "-T3",                      # normal timing, not aggressive
-        "--open",                   # only report open ports
-        "-oX", "-",                 # XML to stdout
+        "-sV",  # service/version detection
+        "--top-ports",
+        str(top_ports),
+        "-T3",  # normal timing, not aggressive
+        "--open",  # only report open ports
+        "-oX",
+        "-",  # XML to stdout
         target,
     ]
 
@@ -87,11 +90,13 @@ def build_probe_command(host: str, port: int, protocol: str = "tcp") -> list[str
     return [
         "nmap",
         "-sU" if protocol == "udp" else "-sV",
-        "-Pn",                      # do not skip the host if ping is blocked
-        "-p", str(int(port)),
+        "-Pn",  # do not skip the host if ping is blocked
+        "-p",
+        str(int(port)),
         "--reason",
         "-T3",
-        "-oX", "-",
+        "-oX",
+        "-",
         host,
     ]
 
@@ -134,7 +139,10 @@ def probe_port(host: str, port: int, protocol: str = "tcp", timeout: int = 120) 
     try:
         result = subprocess.run(
             build_probe_command(host, port, protocol),
-            capture_output=True, text=True, timeout=timeout, check=False,
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+            check=False,
         )
     except subprocess.TimeoutExpired:
         return PortProbe("unknown", "nmap timed out")
@@ -151,10 +159,12 @@ def build_discover_command(target: str) -> list[str]:
     return [
         "nmap",
         "-sT",
-        "--top-ports", "25",
+        "--top-ports",
+        "25",
         "-T4",
         "--open",
-        "-oX", "-",
+        "-oX",
+        "-",
         target,
     ]
 
@@ -190,13 +200,15 @@ def parse_nmap_hosts(xml_text: str) -> list[dict]:
             if sname and sname not in services:
                 services.append(sname)
         if open_ports or (st is not None and st.get("state") == "up"):
-            hosts.append({
-                "host": ip,
-                "hostname": hostname,
-                "status": "up",
-                "open_ports": open_ports,
-                "services": services,
-            })
+            hosts.append(
+                {
+                    "host": ip,
+                    "hostname": hostname,
+                    "status": "up",
+                    "open_ports": open_ports,
+                    "services": services,
+                }
+            )
     return hosts
 
 
@@ -216,5 +228,3 @@ def discover_hosts(target: str, timeout: int = 180) -> list[dict]:
     if result.returncode != 0:
         raise NmapError(f"nmap host discovery failed: {result.stderr.strip()}")
     return parse_nmap_hosts(result.stdout)
-
-

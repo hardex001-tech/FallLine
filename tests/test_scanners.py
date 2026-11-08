@@ -70,11 +70,13 @@ def test_socket_fallback_finds_local_listener():
 def test_naabu_adapter_command_and_parse():
     cmd = naabu.build_command("192.168.56.0/24", top_ports=100)
     assert cmd[:3] == ["naabu", "-host", "192.168.56.0/24"]
-    raw = "\n".join([
-        json.dumps({"ip": "192.168.56.101", "port": 22, "protocol": "tcp"}),
-        json.dumps({"ip": "192.168.56.101", "port": 22, "protocol": "tcp"}),
-        json.dumps({"host": "192.168.56.101", "port": 3306}),
-    ])
+    raw = "\n".join(
+        [
+            json.dumps({"ip": "192.168.56.101", "port": 22, "protocol": "tcp"}),
+            json.dumps({"ip": "192.168.56.101", "port": 22, "protocol": "tcp"}),
+            json.dumps({"host": "192.168.56.101", "port": 3306}),
+        ]
+    )
     parsed = naabu.parse_output(raw)
     assert [(f.host, f.port, f.service, f.source) for f in parsed] == [
         ("192.168.56.101", 22, "ssh", "naabu"),
@@ -84,13 +86,15 @@ def test_naabu_adapter_command_and_parse():
 
 def test_httpx_adapter_detects_admin_and_missing_headers():
     orig = Finding("192.168.56.102", 80, "tcp", "open", service="http")
-    line = json.dumps({
-        "url": "http://192.168.56.102:80/phpmyadmin",
-        "status_code": 200,
-        "title": "phpMyAdmin Login",
-        "tech": ["Apache", "PHP"],
-        "header": {"server": "Apache/2.2"},
-    })
+    line = json.dumps(
+        {
+            "url": "http://192.168.56.102:80/phpmyadmin",
+            "status_code": 200,
+            "title": "phpMyAdmin Login",
+            "tech": ["Apache", "PHP"],
+            "header": {"server": "Apache/2.2"},
+        }
+    )
     extra = httpx.parse_output(line, orig)
     checks = {f.check for f in extra}
     assert checks == {"web-admin-panel", "web-missing-headers"}
@@ -104,21 +108,25 @@ def test_nuclei_safe_tags_and_forbidden_filter():
     with pytest.raises(ValueError):
         nuclei.build_command("http://192.168.56.102:80", template_id="bad;id")
 
-    safe_line = json.dumps({
-        "template-id": "git-config",
-        "matched-at": "http://192.168.56.102:80/.git/config?secret=1",
-        "info": {
-            "name": "Git Config Exposure",
-            "severity": "medium",
-            "tags": ["exposure", "git"],
-            "classification": {"cve-id": ["CVE-2021-0001"]},
-        },
-    })
-    intrusive_line = json.dumps({
-        "template-id": "evil-rce",
-        "matched-at": "http://192.168.56.102:80/rce",
-        "info": {"name": "Intrusive Exploit", "severity": "critical", "tags": ["rce", "exploit"]},
-    })
+    safe_line = json.dumps(
+        {
+            "template-id": "git-config",
+            "matched-at": "http://192.168.56.102:80/.git/config?secret=1",
+            "info": {
+                "name": "Git Config Exposure",
+                "severity": "medium",
+                "tags": ["exposure", "git"],
+                "classification": {"cve-id": ["CVE-2021-0001"]},
+            },
+        }
+    )
+    intrusive_line = json.dumps(
+        {
+            "template-id": "evil-rce",
+            "matched-at": "http://192.168.56.102:80/rce",
+            "info": {"name": "Intrusive Exploit", "severity": "critical", "tags": ["rce", "exploit"]},
+        }
+    )
     out = nuclei.parse_output(safe_line + "\n" + intrusive_line, "192.168.56.102", 80)
     assert len(out) == 1
     assert out[0].check == "git-config"
@@ -165,5 +173,3 @@ def test_real_toolkit_reprobe_treats_nuclei_and_httpx_timeouts_as_inconclusive(m
     assert probe_web.state == "unknown"
     assert "timed out" in probe_web.reason
     assert open_port_finding.port == 9000
-
-

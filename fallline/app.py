@@ -5,6 +5,7 @@ The server binds to 127.0.0.1 by default. Private targets require explicit
 authorization confirmation; public targets require ownership verification
 (DNS TXT record or .well-known HTTP token).
 """
+
 from __future__ import annotations
 
 import threading
@@ -207,7 +208,7 @@ def create_app(
     def scan(req: ScanReq):
         sc = scope()
         try:
-            sc.check(req.target)          # fail fast, and log, before starting a job
+            sc.check(req.target)  # fail fast, and log, before starting a job
         except ScopeError as exc:
             raise HTTPException(403, str(exc)) from exc
         if not lock.acquire(blocking=False):
@@ -217,8 +218,7 @@ def create_app(
 
         def work():
             try:
-                res = run_scan(
-                    sc, store, kb, toolkit, req.target, top_ports=req.top_ports, web=req.web)
+                res = run_scan(sc, store, kb, toolkit, req.target, top_ports=req.top_ports, web=req.web)
                 if demo and store.all() and not store.list_snapshots():
                     create_snapshot(store, kb, intel, "Baseline (Initial Scan)")
                 jobs[job_id] = {"status": "done", "result": res}
@@ -266,6 +266,7 @@ def create_app(
         return {"ok": True}
 
     if demo:
+
         @app.post("/api/demo/fix")
         def demo_fix(req: KeyReq):
             """DEMO ONLY: pretend the admin patched it, inside the fake network."""
@@ -274,11 +275,13 @@ def create_app(
                 raise HTTPException(404, "unknown finding")
             f = rec["finding"]
             if f.source == "aws" and hasattr(toolkit, "aws"):
-                toolkit.aws = [x for x in toolkit.aws if not (
-                    x.host == f.host and x.port == f.port and x.check == f.check)]
+                toolkit.aws = [
+                    x for x in toolkit.aws if not (x.host == f.host and x.port == f.port and x.check == f.check)
+                ]
             elif f.check:
-                toolkit.findings = [x for x in toolkit.findings if not (
-                    x.host == f.host and x.port == f.port and x.check == f.check)]
+                toolkit.findings = [
+                    x for x in toolkit.findings if not (x.host == f.host and x.port == f.port and x.check == f.check)
+                ]
             else:
                 toolkit.close_port(f.host, f.port)
             return {"ok": True}
@@ -287,6 +290,7 @@ def create_app(
         def demo_reset():
             """DEMO ONLY: restore all sample_lab findings and re-scan the fake lab."""
             from .demo import sample_lab
+
             if hasattr(toolkit, "findings"):
                 toolkit.findings = sample_lab()
             if hasattr(toolkit, "down_hosts"):
@@ -326,6 +330,48 @@ def create_app(
             raise HTTPException(400, f"AWS audit failed: {exc.__class__.__name__}") from exc
         counts = store.ingest(findings, kb, target="aws", engine="aws-readonly")
         return {"found": len(findings), "warnings": warnings, **counts}
+
+    @app.get("/api/iac/ansible")
+    def export_ansible():
+        from .iac_generator import generate_ansible_playbook
+
+        classified = [r for r in store.all() if r["status"] == "OPEN"]
+        findings = [
+            {"port": r["finding"].port, "service": r["finding"].service, "title": r["finding"].title}
+            for r in classified
+        ]
+        return Response(
+            content=generate_ansible_playbook(findings),
+            media_type="text/yaml",
+            headers={"Content-Disposition": 'attachment; filename="fallline_remediation.yml"'},
+        )
+
+    @app.get("/api/iac/terraform")
+    def export_terraform():
+        from .iac_generator import generate_terraform_policy
+
+        classified = [r for r in store.all() if r["status"] == "OPEN"]
+        findings = [
+            {"port": r["finding"].port, "service": r["finding"].service, "title": r["finding"].title}
+            for r in classified
+        ]
+        return Response(
+            content=generate_terraform_policy(findings),
+            media_type="text/plain",
+            headers={"Content-Disposition": 'attachment; filename="remediation.tf"'},
+        )
+
+    @app.post("/api/audit/mail")
+    def audit_mail_endpoint(domain: str):
+        from .mail_audit import audit_domain_email_security
+
+        return audit_domain_email_security(domain).to_dict()
+
+    @app.post("/api/ingest/ad")
+    def ingest_ad_endpoint(data: dict):
+        from .ad_ingest import ingest_bloodhound_file_or_data
+
+        return ingest_bloodhound_file_or_data(data).to_dict()
 
     @app.get("/api/report", response_class=HTMLResponse)
     def report(perspective: str = "external"):
@@ -374,6 +420,3 @@ def create_app(
     if assets_dir.exists():
         app.mount("/assets", StaticFiles(directory=assets_dir), name="assets")
     return app
-
-
-

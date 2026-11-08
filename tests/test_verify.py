@@ -69,8 +69,7 @@ def test_unreachable_host_is_never_marked_fixed(tmp_path):
 def test_upgrade_in_place_counts_as_fixed(tmp_path):
     scope, store, tk = make(tmp_path)
     old = next(f for f in tk.findings if f.port == 21)
-    tk.replace(old, Finding(old.host, 21, "tcp", "open", service="ftp", product="vsftpd",
-                            version="3.0.5"))
+    tk.replace(old, Finding(old.host, 21, "tcp", "open", service="ftp", product="vsftpd", version="3.0.5"))
     assert verify_fix(store, KB, scope, tk, VSFTPD).verified
 
 
@@ -109,8 +108,7 @@ def test_accept_risk_needs_reason_and_blocks_verify(tmp_path):
 
 def test_verify_rechecks_scope(tmp_path):
     scope, store, tk = make(tmp_path)
-    store.ingest([Finding("10.9.9.9", 21, "tcp", "open", service="ftp", product="vsftpd",
-                          version="2.3.4")], KB)
+    store.ingest([Finding("10.9.9.9", 21, "tcp", "open", service="ftp", product="vsftpd", version="2.3.4")], KB)
     res = verify_fix(store, KB, scope, tk, "10.9.9.9|21/tcp|vsftpd-234-backdoor")
     assert not res.verified and "Refused" in res.message
 
@@ -129,6 +127,7 @@ def test_web_check_fix_is_verified_per_check(tmp_path):
 def test_intel_offline_fallback(tmp_path):
     def boom(url):
         raise OSError("no network")
+
     i = Intel(tmp_path / "c.json", fetcher=boom)
     assert "offline" in i.update(["CVE-2011-2523"])
     assert not i.available and i.factor(["CVE-2011-2523"])[0] == 1.0
@@ -139,6 +138,7 @@ def test_intel_update_and_cache(tmp_path):
         if "known_exploited" in url:
             return json.dumps({"vulnerabilities": [{"cveID": "CVE-2011-2523"}]})
         return json.dumps({"data": [{"cve": "CVE-2011-2523", "epss": "0.9"}]})
+
     i = Intel(tmp_path / "c.json", fetcher=fetch)
     assert "updated" in i.update(["CVE-2011-2523"])
     again = Intel(tmp_path / "c.json", fetcher=lambda u: (_ for _ in ()).throw(OSError()))

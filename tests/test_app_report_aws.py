@@ -444,5 +444,3 @@ global.fetch = async (url) => {{
     proc = subprocess.run(["node", str(harness)], capture_output=True, text=True, check=False)
     assert proc.returncode == 0, f"Node HUD verification failed:\n{proc.stderr}\n{proc.stdout}"
     assert "HUD_VERIFICATION_OK" in proc.stdout
-
-

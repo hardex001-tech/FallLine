@@ -4,6 +4,7 @@ Used for fast host/port discovery on larger networks before service-version
 checks. Runs in non-intrusive TCP connect/SYN discovery mode with JSON output
 and a conservative packet rate. Skipped gracefully when naabu is not installed.
 """
+
 from __future__ import annotations
 
 import json
@@ -25,9 +26,12 @@ def naabu_available() -> bool:
 def build_command(target: str, top_ports: int = 1000, rate: int = 500) -> list[str]:
     return [
         "naabu",
-        "-host", target,
-        "-top-ports", str(top_ports),
-        "-rate", str(rate),
+        "-host",
+        target,
+        "-top-ports",
+        str(top_ports),
+        "-rate",
+        str(rate),
         "-json",
         "-silent",
         "-no-color",

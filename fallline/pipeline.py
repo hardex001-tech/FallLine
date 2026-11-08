@@ -3,6 +3,7 @@
 All real tools sit behind a `Toolkit`. Tests plug in a fake Toolkit so they
 never touch a real network.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -92,8 +93,8 @@ class RealToolkit(Toolkit):
                 return PortProbe("unknown", "nuclei not installed: cannot re-check")
             try:
                 probe.findings += nuclei_scanner.scan_url(
-                    httpx_scanner.url_for(finding), finding.host, finding.port,
-                    template_id=finding.check)
+                    httpx_scanner.url_for(finding), finding.host, finding.port, template_id=finding.check
+                )
             except (OSError, ValueError, RuntimeError) as exc:
                 return PortProbe("unknown", f"nuclei re-check failed: {exc.__class__.__name__}")
         else:
@@ -115,8 +116,16 @@ class RealToolkit(Toolkit):
         return aws_audit.run_audit(clients, region=self.aws_region or "region")
 
 
-def run_scan(scope: Scope, store: Store, kb: KnowledgeBase, toolkit: Toolkit, target: str,
-             user: str | None = None, top_ports: int = 1000, web: bool = True) -> dict:
+def run_scan(
+    scope: Scope,
+    store: Store,
+    kb: KnowledgeBase,
+    toolkit: Toolkit,
+    target: str,
+    user: str | None = None,
+    top_ports: int = 1000,
+    web: bool = True,
+) -> dict:
     """Scope-checked scan; raises ScopeError when the target is not authorized."""
     net = scope.check(target, user=user)
     engine, findings = toolkit.discover(net, top_ports)
@@ -125,8 +134,7 @@ def run_scan(scope: Scope, store: Store, kb: KnowledgeBase, toolkit: Toolkit, ta
         extra, warnings = toolkit.web_checks(findings)
         findings = findings + extra
     counts = store.ingest(findings, kb, target=str(net), engine=engine)
-    return {"target": str(net), "engine": engine, "found": len(findings),
-            "warnings": warnings, **counts}
+    return {"target": str(net), "engine": engine, "found": len(findings), "warnings": warnings, **counts}
 
 
 def run_host_discovery(scope: Scope, toolkit: Toolkit, target: str, user: str | None = None) -> dict:
@@ -134,4 +142,3 @@ def run_host_discovery(scope: Scope, toolkit: Toolkit, target: str, user: str | 
     net = scope.check(target, user=user)
     engine, hosts = toolkit.discover_hosts(net)
     return {"target": str(net), "engine": engine, "count": len(hosts), "hosts": hosts}
-

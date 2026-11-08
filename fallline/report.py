@@ -1,4 +1,5 @@
 """Plain-language HTML and PDF report ("Attack Story"). Self-contained, no external assets."""
+
 from __future__ import annotations
 
 import csv
@@ -41,8 +42,9 @@ def _e(x) -> str:
     return escape(str(x))
 
 
-def render_report(assessment: dict, records: list[dict], authorized_by: str = "",
-                  title: str = "FallLine Attack Story") -> str:
+def render_report(
+    assessment: dict, records: list[dict], authorized_by: str = "", title: str = "FallLine Attack Story"
+) -> str:
     ttc = assessment["ttc_minutes"]
     path = assessment["path"]
     plan = assessment["fix_plan"]
@@ -57,8 +59,10 @@ def render_report(assessment: dict, records: list[dict], authorized_by: str = ""
         meta,
     ]
     if assessment["simulated_fixes"]:
-        parts.append("<div class='box'><b>SIMULATION.</b> This report assumes some fixes were made "
-                     "that have not been verified by a re-scan.</div>")
+        parts.append(
+            "<div class='box'><b>SIMULATION.</b> This report assumes some fixes were made "
+            "that have not been verified by a re-scan.</div>"
+        )
 
     baseline_ttc = assessment.get("baseline_ttc_minutes")
     has_fixes = bool(assessment.get("counts", {}).get("fixed_verified") or assessment["simulated_fixes"])
@@ -71,37 +75,48 @@ def render_report(assessment: dict, records: list[dict], authorized_by: str = ""
         )
 
     if ttc is None:
-        parts.append("<div class='box ok'><b>No attack path found</b> with the exposures currently "
-                     "open. That is based only on what was scanned.</div>")
+        parts.append(
+            "<div class='box ok'><b>No attack path found</b> with the exposures currently "
+            "open. That is based only on what was scanned.</div>"
+        )
     else:
-        parts.append(f"<div class='box'><b>Time to compromise: {_e(humanize_minutes(ttc))}.</b> "
-                     "This is a rough estimate of how long a skilled attacker would need, based on "
-                     "the exposures found. It orders the fixes; it is not a guarantee.</div>")
+        parts.append(
+            f"<div class='box'><b>Time to compromise: {_e(humanize_minutes(ttc))}.</b> "
+            "This is a rough estimate of how long a skilled attacker would need, based on "
+            "the exposures found. It orders the fixes; it is not a guarantee.</div>"
+        )
         parts.append("<h2>The attack story</h2><ol>")
         for s in path:
-            parts.append(f"<li><b>{_e(s['from'])} &rarr; {_e(s['to'])}</b>: {_e(s['title'])}"
-                         f"{' on port ' + _e(s['port']) if s.get('port') else ''}. "
-                         f"{_e(s.get('why', ''))} <small>({_e(s['technique'])}, ~{_e(round(s['minutes']))} min)"
-                         f"</small></li>")
+            parts.append(
+                f"<li><b>{_e(s['from'])} &rarr; {_e(s['to'])}</b>: {_e(s['title'])}"
+                f"{' on port ' + _e(s['port']) if s.get('port') else ''}. "
+                f"{_e(s.get('why', ''))} <small>({_e(s['technique'])}, ~{_e(round(s['minutes']))} min)"
+                f"</small></li>"
+            )
         parts.append("</ol>")
 
     parts.append("<h2>Fix this first</h2>")
     if plan:
-        parts.append("<table><tr><th>#</th><th>Where</th><th>Fix</th><th>Effort</th>"
-                     "<th>Attacker time after fix</th></tr>")
+        parts.append(
+            "<table><tr><th>#</th><th>Where</th><th>Fix</th><th>Effort</th><th>Attacker time after fix</th></tr>"
+        )
         for i, p in enumerate(plan, 1):
             after = "no path left" if p["ttc_after"] is None else humanize_minutes(p["ttc_after"])
             where = _e(p["host"]) + (f":{_e(p['port'])}" if p["port"] else "")
             cmd_html = f"<br><code>{_e(p['fix_command'])}</code>" if p.get("fix_command") else ""
-            parts.append(f"<tr><td>{i}</td><td>{where}</td><td><b>{_e(p['title'])}</b><br>"
-                         f"{_e(p['remediation'])}{cmd_html}</td><td>~{_e(round(p['fix_minutes']))} min</td>"
-                         f"<td>{_e(after)}</td></tr>")
+            parts.append(
+                f"<tr><td>{i}</td><td>{where}</td><td><b>{_e(p['title'])}</b><br>"
+                f"{_e(p['remediation'])}{cmd_html}</td><td>~{_e(round(p['fix_minutes']))} min</td>"
+                f"<td>{_e(after)}</td></tr>"
+            )
         parts.append("</table>")
     else:
         parts.append("<p>Nothing to fix on the current attack path.</p>")
 
-    parts.append("<h2>All findings</h2><table><tr><th>Status</th><th>Severity</th><th>Where</th>"
-                 "<th>Finding</th><th>Verification</th></tr>")
+    parts.append(
+        "<h2>All findings</h2><table><tr><th>Status</th><th>Severity</th><th>Where</th>"
+        "<th>Finding</th><th>Verification</th></tr>"
+    )
     sev = {e["key"]: e for e in assessment["exposures"]}
     for r in records:
         f = r["finding"]
@@ -111,13 +126,17 @@ def render_report(assessment: dict, records: list[dict], authorized_by: str = ""
         ver = _e(r["note"]) if r["note"] else ("&mdash;" if r["status"] == "OPEN" else "")
         if r["status"] == "FIXED_VERIFIED":
             ver = f"Re-scan confirmed gone {_e(r['verified_at'])}. {ver}"
-        parts.append(f"<tr><td>{_e(r['status'])}</td><td class='sev-{_e(sv)}'>{_e(sv)}</td>"
-                     f"<td>{where}</td><td>{_e(info['title'] if info else (f.service or 'service'))}"
-                     f"{(' ' + _e(f.product) + ' ' + _e(f.version)) if f.product else ''}</td>"
-                     f"<td>{ver}</td></tr>")
-    parts.append("</table><p><small>FallLine detects exposure only. It does not exploit, guess "
-                 "passwords or run intrusive checks. Use it only on systems you are authorized "
-                 "to test.</small></p>")
+        parts.append(
+            f"<tr><td>{_e(r['status'])}</td><td class='sev-{_e(sv)}'>{_e(sv)}</td>"
+            f"<td>{where}</td><td>{_e(info['title'] if info else (f.service or 'service'))}"
+            f"{(' ' + _e(f.product) + ' ' + _e(f.version)) if f.product else ''}</td>"
+            f"<td>{ver}</td></tr>"
+        )
+    parts.append(
+        "</table><p><small>FallLine detects exposure only. It does not exploit, guess "
+        "passwords or run intrusive checks. Use it only on systems you are authorized "
+        "to test.</small></p>"
+    )
     return "\n".join(parts)
 
 
@@ -126,8 +145,9 @@ def _pdf_escape(text: str) -> str:
     return safe.replace("\\", "\\\\").replace("(", "\\(").replace(")", "\\)")
 
 
-def render_pdf(assessment: dict, records: list[dict], authorized_by: str = "",
-               title: str = "FallLine Attack Story") -> bytes:
+def render_pdf(
+    assessment: dict, records: list[dict], authorized_by: str = "", title: str = "FallLine Attack Story"
+) -> bytes:
     """Build a self-contained multi-page PDF 1.4 Attack Story document with zero external dependencies."""
     ttc = assessment["ttc_minutes"]
     header_meta = (
@@ -232,9 +252,7 @@ def render_pdf(assessment: dict, records: list[dict], authorized_by: str = "",
     out.extend(f"xref\n0 {len(offsets)}\n0000000000 65535 f \n".encode("latin-1"))
     for off in offsets[1:]:
         out.extend(f"{off:010d} 00000 n \n".encode("latin-1"))
-    out.extend(
-        f"trailer\n<< /Size {len(offsets)} /Root 1 0 R >>\nstartxref\n{xref_pos}\n%%EOF\n".encode("latin-1")
-    )
+    out.extend(f"trailer\n<< /Size {len(offsets)} /Root 1 0 R >>\nstartxref\n{xref_pos}\n%%EOF\n".encode("latin-1"))
     return bytes(out)
 
 
@@ -258,33 +276,37 @@ def render_sarif(
         if rule.fix_command:
             help_text += f"\nCommand: {rule.fix_command}"
             help_md += f"\n\n```bash\n{rule.fix_command}\n```"
-        sarif_rules.append({
-            "id": rule.id,
-            "name": rule.title,
-            "shortDescription": {"text": rule.title},
-            "fullDescription": {"text": rule.why},
-            "help": {"text": help_text, "markdown": help_md},
-            "defaultConfiguration": {"level": _SARIF_LEVELS.get(sv, "note")},
-            "properties": {
-                "tags": ["security", f"MITRE/{tid}", f"Tactic/{tactic}", *rule.cves],
-                "precision": "high",
-                "security-severity": _SARIF_SCORES.get(sv, "1.0"),
-                "tactic": tactic,
-                "technique": f"{tid} {rule.technique['name']}",
-                "fix_command": rule.fix_command,
-            },
-        })
+        sarif_rules.append(
+            {
+                "id": rule.id,
+                "name": rule.title,
+                "shortDescription": {"text": rule.title},
+                "fullDescription": {"text": rule.why},
+                "help": {"text": help_text, "markdown": help_md},
+                "defaultConfiguration": {"level": _SARIF_LEVELS.get(sv, "note")},
+                "properties": {
+                    "tags": ["security", f"MITRE/{tid}", f"Tactic/{tactic}", *rule.cves],
+                    "precision": "high",
+                    "security-severity": _SARIF_SCORES.get(sv, "1.0"),
+                    "tactic": tactic,
+                    "technique": f"{tid} {rule.technique['name']}",
+                    "fix_command": rule.fix_command,
+                },
+            }
+        )
 
     if any(r.get("rule_id") == "none" for r in records):
-        sarif_rules.append({
-            "id": "unclassified-service",
-            "name": "Unclassified open network service",
-            "shortDescription": {"text": "Open network service without a specific attack rule"},
-            "fullDescription": {"text": "An open network service was detected during scanning."},
-            "help": {"text": "Review whether this service needs to be exposed."},
-            "defaultConfiguration": {"level": "note"},
-            "properties": {"tags": ["security"], "security-severity": "1.0"},
-        })
+        sarif_rules.append(
+            {
+                "id": "unclassified-service",
+                "name": "Unclassified open network service",
+                "shortDescription": {"text": "Open network service without a specific attack rule"},
+                "fullDescription": {"text": "An open network service was detected during scanning."},
+                "help": {"text": "Review whether this service needs to be exposed."},
+                "defaultConfiguration": {"level": "note"},
+                "properties": {"tags": ["security"], "security-severity": "1.0"},
+            }
+        )
 
     results: list[dict] = []
     for r in records:
@@ -299,11 +321,7 @@ def render_sarif(
             if info
             else (f"{rule_obj.technique['id']} {rule_obj.technique['name']}" if rule_obj else "-")
         )
-        tactic = (
-            info.get("tactic", "")
-            if info
-            else (rule_obj.technique.get("tactic", "") if rule_obj else "")
-        )
+        tactic = info.get("tactic", "") if info else (rule_obj.technique.get("tactic", "") if rule_obj else "")
         remediation = info["remediation"] if info else (rule_obj.remediation if rule_obj else "")
         fix_cmd = info.get("fix_command", "") if info else (rule_obj.fix_command if rule_obj else "")
         where = f"{f.host}:{f.port}/{f.protocol}" if f.port else f.host
@@ -345,9 +363,7 @@ def render_sarif(
             },
         }
         if r["status"] == "ACCEPTED_RISK":
-            res_entry["suppressions"] = [
-                {"kind": "external", "justification": r.get("note") or "Accepted risk"}
-            ]
+            res_entry["suppressions"] = [{"kind": "external", "justification": r.get("note") or "Accepted risk"}]
         results.append(res_entry)
 
     return {
@@ -399,41 +415,39 @@ def render_csv(
     plan_keys = {p["key"] for p in assessment.get("fix_plan", [])}
     buf = io.StringIO(newline="")
     writer = csv.writer(buf)
-    writer.writerow([
-        "key",
-        "status",
-        "severity",
-        "host",
-        "port",
-        "protocol",
-        "service",
-        "product",
-        "version",
-        "rule_id",
-        "title",
-        "tactic",
-        "technique",
-        "attacker_minutes",
-        "fix_minutes",
-        "in_fix_plan",
-        "remediation",
-        "fix_command",
-        "cves",
-        "verified_at",
-        "note",
-        "authorized_by",
-    ])
+    writer.writerow(
+        [
+            "key",
+            "status",
+            "severity",
+            "host",
+            "port",
+            "protocol",
+            "service",
+            "product",
+            "version",
+            "rule_id",
+            "title",
+            "tactic",
+            "technique",
+            "attacker_minutes",
+            "fix_minutes",
+            "in_fix_plan",
+            "remediation",
+            "fix_command",
+            "cves",
+            "verified_at",
+            "note",
+            "authorized_by",
+        ]
+    )
     for r in records:
         f = r["finding"]
         info = exp_by_key.get(r["key"])
         rule_obj = kb.by_id.get(r["rule_id"])
         sv = info["severity"] if info else (rule_obj.severity if rule_obj else "info")
         title = info["title"] if info else (rule_obj.title if rule_obj else (f.title or f.service or "service"))
-        tactic = (
-            info.get("tactic", "")
-            if info
-            else (rule_obj.technique.get("tactic", "") if rule_obj else "")
-        )
+        tactic = info.get("tactic", "") if info else (rule_obj.technique.get("tactic", "") if rule_obj else "")
         tech = (
             info["technique"]
             if info
@@ -444,30 +458,30 @@ def render_csv(
         rem = info["remediation"] if info else (rule_obj.remediation if rule_obj else "")
         fix_cmd = info.get("fix_command", "") if info else (rule_obj.fix_command if rule_obj else "")
         cves = info["cves"] if info else list(dict.fromkeys([*(rule_obj.cves if rule_obj else []), *f.cves]))
-        writer.writerow([
-            r["key"],
-            r["status"],
-            sv,
-            f.host,
-            f.port,
-            f.protocol,
-            f.service,
-            f.product,
-            f.version,
-            r["rule_id"],
-            title,
-            tactic,
-            tech,
-            att_min,
-            fix_min,
-            r["key"] in plan_keys,
-            rem,
-            fix_cmd,
-            ";".join(cves),
-            r.get("verified_at") or "",
-            r.get("note") or "",
-            authorized_by or "",
-        ])
+        writer.writerow(
+            [
+                r["key"],
+                r["status"],
+                sv,
+                f.host,
+                f.port,
+                f.protocol,
+                f.service,
+                f.product,
+                f.version,
+                r["rule_id"],
+                title,
+                tactic,
+                tech,
+                att_min,
+                fix_min,
+                r["key"] in plan_keys,
+                rem,
+                fix_cmd,
+                ";".join(cves),
+                r.get("verified_at") or "",
+                r.get("note") or "",
+                authorized_by or "",
+            ]
+        )
     return buf.getvalue()
-
-

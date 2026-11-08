@@ -1,4 +1,5 @@
 """Glue between store, rules, intel and the path engine (used by CLI, API, report)."""
+
 from __future__ import annotations
 
 from .intel import Intel
@@ -7,8 +8,13 @@ from .paths import analyze, build_exposures, humanize_minutes
 from .store import ACCEPTED, FIXED, OPEN, Store
 
 
-def assess(store: Store, kb: KnowledgeBase, intel: Intel | None, perspective: str = "external",
-           simulate: list[str] | tuple[str, ...] = ()) -> dict:
+def assess(
+    store: Store,
+    kb: KnowledgeBase,
+    intel: Intel | None,
+    perspective: str = "external",
+    simulate: list[str] | tuple[str, ...] = (),
+) -> dict:
     """Current assessment.
 
     The attack graph uses OPEN exposures only. FIXED_VERIFIED ones are gone
@@ -36,23 +42,34 @@ def assess(store: Store, kb: KnowledgeBase, intel: Intel | None, perspective: st
     for r in recs:
         f = r["finding"]
         e = exp_by_key.get(r["key"])
-        records.append({
-            "key": r["key"], "rule_id": r["rule_id"], "status": r["status"], "note": r["note"],
-            "first_seen": r["first_seen"], "last_seen": r["last_seen"],
-            "verified_at": r["verified_at"], "host": f.host, "port": f.port,
-            "protocol": f.protocol, "service": f.service, "product": f.product,
-            "version": f.version, "evidence": f.evidence,
-            "title": e.rule.title if e else (f.title or f"{f.service or 'service'} (no rule)"),
-            "severity": e.rule.severity if e else "info",
-            "tactic": e.rule.technique.get("tactic", "") if e else "",
-            "technique": f"{e.rule.technique['id']} {e.rule.technique['name']}" if e else "-",
-            "remediation": e.rule.remediation if e else "",
-            "fix_command": e.rule.fix_command if e else "",
-            "why": e.rule.why if e else "",
-            "cves": list(dict.fromkeys([*(e.rule.cves if e else []), *f.cves])),
-            "classified": e is not None,
-            "simulated_fixed": r["key"] in sim,
-        })
+        records.append(
+            {
+                "key": r["key"],
+                "rule_id": r["rule_id"],
+                "status": r["status"],
+                "note": r["note"],
+                "first_seen": r["first_seen"],
+                "last_seen": r["last_seen"],
+                "verified_at": r["verified_at"],
+                "host": f.host,
+                "port": f.port,
+                "protocol": f.protocol,
+                "service": f.service,
+                "product": f.product,
+                "version": f.version,
+                "evidence": f.evidence,
+                "title": e.rule.title if e else (f.title or f"{f.service or 'service'} (no rule)"),
+                "severity": e.rule.severity if e else "info",
+                "tactic": e.rule.technique.get("tactic", "") if e else "",
+                "technique": f"{e.rule.technique['id']} {e.rule.technique['name']}" if e else "-",
+                "remediation": e.rule.remediation if e else "",
+                "fix_command": e.rule.fix_command if e else "",
+                "why": e.rule.why if e else "",
+                "cves": list(dict.fromkeys([*(e.rule.cves if e else []), *f.cves])),
+                "classified": e is not None,
+                "simulated_fixed": r["key"] in sim,
+            }
+        )
     result["records"] = records
     result["mitre_matrix"] = build_mitre_matrix(kb, records)
     result["baseline_ttc_minutes"] = baseline["ttc_minutes"]
@@ -64,9 +81,11 @@ def assess(store: Store, kb: KnowledgeBase, intel: Intel | None, perspective: st
         "accepted_risk": sum(1 for r in recs if r["status"] == ACCEPTED),
         "excluded_accepted": len(non_fixed) - len(open_exps),
     }
-    result["intel"] = {"available": bool(intel and intel.available),
-                       "updated_at": intel.updated_at if intel else None,
-                       "kev_entries": len(intel.kev) if intel else 0}
+    result["intel"] = {
+        "available": bool(intel and intel.available),
+        "updated_at": intel.updated_at if intel else None,
+        "kev_entries": len(intel.kev) if intel else 0,
+    }
     result["simulation"] = bool(sim)
     return result
 
@@ -136,25 +155,15 @@ def diff_snapshot(
                 item["change"] = "fixed"
                 fixed_findings.append(item)
 
-    accepted_findings = [
-        dict(r) for r in target["records"] if r["status"] == ACCEPTED
-    ]
+    accepted_findings = [dict(r) for r in target["records"] if r["status"] == ACCEPTED]
 
     ext_before = base["ttc_external"]
     ext_after = target["ttc_external"]
-    ext_delta = (
-        round(ext_after - ext_before, 1)
-        if (ext_before is not None and ext_after is not None)
-        else None
-    )
+    ext_delta = round(ext_after - ext_before, 1) if (ext_before is not None and ext_after is not None) else None
 
     int_before = base["ttc_internal"]
     int_after = target["ttc_internal"]
-    int_delta = (
-        round(int_after - int_before, 1)
-        if (int_before is not None and int_after is not None)
-        else None
-    )
+    int_delta = round(int_after - int_before, 1) if (int_before is not None and int_after is not None) else None
 
     chain_before = int(base["chain_length"])
     chain_after = int(target["chain_length"])
@@ -203,5 +212,3 @@ def diff_snapshot(
         "chain_length_after": chain_after,
         "chain_length_delta": chain_delta,
     }
-
-

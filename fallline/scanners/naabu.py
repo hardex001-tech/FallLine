@@ -1,4 +1,5 @@
 """Alias module re-exporting naabu_scanner for plan compatibility."""
+
 from .naabu_scanner import (
     NaabuError,
     build_command,

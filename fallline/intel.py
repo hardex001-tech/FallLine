@@ -4,6 +4,7 @@ Data is cached locally. Nothing is downloaded unless `update()` is called
 (explicitly, via `fallline intel update` or the dashboard button). If there is
 no cache and no network, scoring simply runs without it and says so.
 """
+
 from __future__ import annotations
 
 import json
@@ -27,8 +28,7 @@ def _http_get(url: str) -> str:
 
 
 class Intel:
-    def __init__(self, cache_path: str | Path = "data/intel_cache.json",
-                 fetcher: Fetcher | None = None):
+    def __init__(self, cache_path: str | Path = "data/intel_cache.json", fetcher: Fetcher | None = None):
         self.cache_path = Path(cache_path)
         self.fetcher = fetcher or _http_get
         self.kev: set[str] = set()
@@ -50,11 +50,16 @@ class Intel:
 
     def _save_cache(self) -> None:
         self.cache_path.parent.mkdir(parents=True, exist_ok=True)
-        self.cache_path.write_text(json.dumps({
-            "updated_at": self.updated_at,
-            "kev": sorted(self.kev),
-            "epss": self.epss,
-        }), encoding="utf-8")
+        self.cache_path.write_text(
+            json.dumps(
+                {
+                    "updated_at": self.updated_at,
+                    "kev": sorted(self.kev),
+                    "epss": self.epss,
+                }
+            ),
+            encoding="utf-8",
+        )
 
     @property
     def available(self) -> bool:
@@ -70,11 +75,13 @@ class Intel:
             kev_json = json.loads(self.fetcher(KEV_URL))
             self.kev = {v["cveID"] for v in kev_json.get("vulnerabilities", [])}
         except (OSError, ValueError, KeyError, TypeError, RuntimeError) as exc:
-            return (f"offline: could not refresh KEV ({exc.__class__.__name__}); "
-                    f"using {'cached' if self.available else 'no'} data")
+            return (
+                f"offline: could not refresh KEV ({exc.__class__.__name__}); "
+                f"using {'cached' if self.available else 'no'} data"
+            )
         wanted = sorted({c for c in (cves or []) if c.upper().startswith("CVE-")})
         for i in range(0, len(wanted), 50):
-            chunk = wanted[i:i + 50]
+            chunk = wanted[i : i + 50]
             url = EPSS_URL + "?" + urllib.parse.urlencode({"cve": ",".join(chunk)})
             try:
                 for row in json.loads(self.fetcher(url)).get("data", []):

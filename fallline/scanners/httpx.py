@@ -1,4 +1,5 @@
 """Alias module re-exporting httpx_scanner for plan compatibility."""
+
 from .httpx_scanner import (
     ADMIN_RE,
     REQUIRED_HEADERS,

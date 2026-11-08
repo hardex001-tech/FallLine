@@ -1,4 +1,5 @@
 """Rules knowledge base: turns raw findings into classified, scored exposures."""
+
 from __future__ import annotations
 
 import re
@@ -92,8 +93,9 @@ class KnowledgeBase:
         """First matching rule, or None if the finding carries no attack value."""
         for rule in self.rules:
             if rule.matches(f):
-                if (f.severity or "").lower() in [str(s).lower() for s in rule.skip_severities] \
-                        and rule.skip_severities:
+                if (f.severity or "").lower() in [
+                    str(s).lower() for s in rule.skip_severities
+                ] and rule.skip_severities:
                     return None
                 return rule
         return None
@@ -170,29 +172,31 @@ def build_mitre_matrix(kb: KnowledgeBase, records: list[dict]) -> list[dict]:
             bucket["accepted_count"] += 1
             if tid in bucket["techniques"]:
                 bucket["techniques"][tid]["accepted"] += 1
-        bucket["findings"].append({
-            "key": rec["key"],
-            "host": rec["host"],
-            "port": rec["port"],
-            "title": rec["title"],
-            "severity": rec["severity"],
-            "status": st,
-            "technique_id": tid,
-            "technique": f"{tid} {rule.technique['name']}",
-            "fix_command": rule.fix_command,
-        })
+        bucket["findings"].append(
+            {
+                "key": rec["key"],
+                "host": rec["host"],
+                "port": rec["port"],
+                "title": rec["title"],
+                "severity": rec["severity"],
+                "status": st,
+                "technique_id": tid,
+                "technique": f"{tid} {rule.technique['name']}",
+                "fix_command": rule.fix_command,
+            }
+        )
 
     out: list[dict] = []
     for tactic, bucket in by_tactic.items():
-        out.append({
-            "tactic": tactic,
-            "rules_count": bucket["rules_count"],
-            "open_count": bucket["open_count"],
-            "fixed_count": bucket["fixed_count"],
-            "accepted_count": bucket["accepted_count"],
-            "techniques": list(bucket["techniques"].values()),
-            "findings": bucket["findings"],
-        })
+        out.append(
+            {
+                "tactic": tactic,
+                "rules_count": bucket["rules_count"],
+                "open_count": bucket["open_count"],
+                "fixed_count": bucket["fixed_count"],
+                "accepted_count": bucket["accepted_count"],
+                "techniques": list(bucket["techniques"].values()),
+                "findings": bucket["findings"],
+            }
+        )
     return out
-
-

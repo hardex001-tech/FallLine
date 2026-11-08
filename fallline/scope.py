@@ -7,6 +7,7 @@ Private/loopback ranges require explicit authorization confirmation.
 Public targets require ownership verification (DNS TXT record or HTTP
 `.well-known/fallline-verify.txt` token file) before they can be scanned.
 """
+
 from __future__ import annotations
 
 import getpass
@@ -108,10 +109,7 @@ class Scope:
 
         is_local = net.is_private or net.is_loopback
         if not is_local:
-            verified = any(
-                net.version == vp.version and net.subnet_of(vp)
-                for vp in self.verified_public
-            )
+            verified = any(net.version == vp.version and net.subnet_of(vp) for vp in self.verified_public)
             if not verified:
                 self._log(user, target, False, "public target, ownership proof needed")
                 raise ScopeError(
@@ -128,8 +126,7 @@ class Scope:
         self._log(user, target, False, "outside authorized scope")
         raise ScopeError(f"{target} is outside the authorized scope")
 
-    def add_private_target(self, target: str, confirm_authorization: bool = False,
-                           user: str | None = None) -> Network:
+    def add_private_target(self, target: str, confirm_authorization: bool = False, user: str | None = None) -> Network:
         """Add a private/loopback IP or CIDR to the authorized scope."""
         user = user or getpass.getuser()
         if confirm_authorization is not True:
@@ -142,9 +139,7 @@ class Scope:
             raise ScopeError(f"'{target}' is not a valid IP address or CIDR range") from exc
         if not (net.is_private or net.is_loopback):
             self._log(user, target, False, "public target requires ownership proof")
-            raise ScopeError(
-                f"{target} is a public target. Prove ownership first via DNS TXT or HTTP token."
-            )
+            raise ScopeError(f"{target} is a public target. Prove ownership first via DNS TXT or HTTP token.")
         if net not in self.networks:
             self.networks.append(net)
             self.save()
@@ -281,4 +276,3 @@ def load_scope(path: str | Path, audit_log: str | Path | None = None) -> Scope:
     if audit_log:
         scope.audit_log = Path(audit_log)
     return scope
-

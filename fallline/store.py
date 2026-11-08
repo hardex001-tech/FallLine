@@ -4,6 +4,7 @@ OPEN            exposure currently believed present
 FIXED_VERIFIED  a re-scan confirmed it is gone (only verify.py sets this)
 ACCEPTED_RISK   a person decided to live with it (reason required)
 """
+
 from __future__ import annotations
 
 import json
@@ -75,8 +76,7 @@ class Store:
         self.path = str(path)
         if self.path != ":memory:":
             Path(self.path).parent.mkdir(parents=True, exist_ok=True)
-        self._mem = sqlite3.connect(":memory:", check_same_thread=False) \
-            if self.path == ":memory:" else None
+        self._mem = sqlite3.connect(":memory:", check_same_thread=False) if self.path == ":memory:" else None
         with self._conn() as c:
             c.executescript(SCHEMA)
 
@@ -95,8 +95,7 @@ class Store:
                 conn.close()
 
     # -- writing ----------------------------------------------------------
-    def ingest(self, findings: list[Finding], kb: KnowledgeBase,
-               target: str = "", engine: str = "") -> dict:
+    def ingest(self, findings: list[Finding], kb: KnowledgeBase, target: str = "", engine: str = "") -> dict:
         """Add scan results. Never marks anything fixed: only verify does that."""
         now = _now()
         counts = {"new": 0, "seen": 0, "reopened": 0}
@@ -107,24 +106,31 @@ class Store:
                 row = c.execute("SELECT status FROM findings WHERE key=?", (key,)).fetchone()
                 data = json.dumps(f.to_dict())
                 if row is None:
-                    c.execute("INSERT INTO findings VALUES (?,?,?,?,?,?,NULL,'')",
-                              (key, rule.id if rule else "none", data, OPEN, now, now))
-                    c.execute("INSERT INTO events(time,key,event,detail) VALUES (?,?,?,?)",
-                              (now, key, "found", "first seen"))
+                    c.execute(
+                        "INSERT INTO findings VALUES (?,?,?,?,?,?,NULL,'')",
+                        (key, rule.id if rule else "none", data, OPEN, now, now),
+                    )
+                    c.execute(
+                        "INSERT INTO events(time,key,event,detail) VALUES (?,?,?,?)", (now, key, "found", "first seen")
+                    )
                     counts["new"] += 1
                 elif row["status"] == FIXED:
-                    c.execute("UPDATE findings SET data=?, status=?, last_seen=?, verified_at=NULL "
-                              "WHERE key=?", (data, OPEN, now, key))
-                    c.execute("INSERT INTO events(time,key,event,detail) VALUES (?,?,?,?)",
-                              (now, key, "reopened", "seen again after being verified fixed"))
+                    c.execute(
+                        "UPDATE findings SET data=?, status=?, last_seen=?, verified_at=NULL WHERE key=?",
+                        (data, OPEN, now, key),
+                    )
+                    c.execute(
+                        "INSERT INTO events(time,key,event,detail) VALUES (?,?,?,?)",
+                        (now, key, "reopened", "seen again after being verified fixed"),
+                    )
                     counts["reopened"] += 1
                 else:
-                    c.execute("UPDATE findings SET data=?, last_seen=? WHERE key=?",
-                              (data, now, key))
+                    c.execute("UPDATE findings SET data=?, last_seen=? WHERE key=?", (data, now, key))
                     counts["seen"] += 1
             if target:
-                c.execute("INSERT INTO scans(time,target,engine,found) VALUES (?,?,?,?)",
-                          (now, target, engine, len(findings)))
+                c.execute(
+                    "INSERT INTO scans(time,target,engine,found) VALUES (?,?,?,?)", (now, target, engine, len(findings))
+                )
         return counts
 
     def set_status(self, key: str, status: str, note: str = "", event: str = "") -> None:
@@ -134,15 +140,17 @@ class Store:
         with self._conn() as c:
             if c.execute("SELECT 1 FROM findings WHERE key=?", (key,)).fetchone() is None:
                 raise KeyError(key)
-            c.execute("UPDATE findings SET status=?, note=?, verified_at=? WHERE key=?",
-                      (status, note, now if status == FIXED else None, key))
-            c.execute("INSERT INTO events(time,key,event,detail) VALUES (?,?,?,?)",
-                      (now, key, event or status.lower(), note))
+            c.execute(
+                "UPDATE findings SET status=?, note=?, verified_at=? WHERE key=?",
+                (status, note, now if status == FIXED else None, key),
+            )
+            c.execute(
+                "INSERT INTO events(time,key,event,detail) VALUES (?,?,?,?)", (now, key, event or status.lower(), note)
+            )
 
     def log_event(self, key: str | None, event: str, detail: str = "") -> None:
         with self._conn() as c:
-            c.execute("INSERT INTO events(time,key,event,detail) VALUES (?,?,?,?)",
-                      (_now(), key, event, detail))
+            c.execute("INSERT INTO events(time,key,event,detail) VALUES (?,?,?,?)", (_now(), key, event, detail))
 
     def save_snapshot(
         self,
@@ -190,10 +198,16 @@ class Store:
 
     # -- reading ----------------------------------------------------------
     def _row(self, r: sqlite3.Row) -> dict:
-        return {"key": r["key"], "rule_id": r["rule_id"], "status": r["status"],
-                "first_seen": r["first_seen"], "last_seen": r["last_seen"],
-                "verified_at": r["verified_at"], "note": r["note"],
-                "finding": finding_from_dict(json.loads(r["data"]))}
+        return {
+            "key": r["key"],
+            "rule_id": r["rule_id"],
+            "status": r["status"],
+            "first_seen": r["first_seen"],
+            "last_seen": r["last_seen"],
+            "verified_at": r["verified_at"],
+            "note": r["note"],
+            "finding": finding_from_dict(json.loads(r["data"])),
+        }
 
     def get(self, key: str) -> dict | None:
         with self._conn() as c:
@@ -212,14 +226,15 @@ class Store:
 
     def events(self, limit: int = 100) -> list[dict]:
         with self._conn() as c:
-            return [dict(r) for r in c.execute(
-                "SELECT time,key,event,detail FROM events ORDER BY id DESC LIMIT ?", (limit,))]
+            return [
+                dict(r)
+                for r in c.execute("SELECT time,key,event,detail FROM events ORDER BY id DESC LIMIT ?", (limit,))
+            ]
 
     def list_snapshots(self) -> list[dict]:
         with self._conn() as c:
             rows = c.execute(
-                "SELECT id,name,created_at,ttc_external,ttc_internal,chain_length,counts "
-                "FROM snapshots ORDER BY id ASC"
+                "SELECT id,name,created_at,ttc_external,ttc_internal,chain_length,counts FROM snapshots ORDER BY id ASC"
             ).fetchall()
         return [
             {
@@ -250,5 +265,3 @@ class Store:
             "records": json.loads(r["records"]),
             "path": json.loads(r["path"]),
         }
-
-

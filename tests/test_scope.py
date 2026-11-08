@@ -139,5 +139,3 @@ def test_default_dns_txt_resolver_via_mocked_nslookup(tmp_path, monkeypatch):
     res = scope.verify_public_target(pub, method="dns")
     assert res["token"] == tok
     assert str(scope.check("93.184.216.34", user="admin")) == "93.184.216.34/32"
-
-

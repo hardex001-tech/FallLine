@@ -10,6 +10,7 @@ is the most likely attack path; its cost is the time-to-compromise.
 Fix ranking removes one exposure at a time and re-computes the cheapest route,
 so a fix is valued by how much it really slows or stops the attacker.
 """
+
 from __future__ import annotations
 
 import heapq
@@ -28,8 +29,8 @@ from .scanners.base import Finding
 
 ATTACKER = "ATTACKER"
 GOAL = "GOAL"
-LATERAL_DISCOUNT = 0.6      # an attacker already inside moves faster
-POST_EXPLOIT_MINUTES = 15   # time to collect data once a host is controlled
+LATERAL_DISCOUNT = 0.6  # an attacker already inside moves faster
+POST_EXPLOIT_MINUTES = 15  # time to collect data once a host is controlled
 PERSPECTIVES = ("external", "internal")
 
 
@@ -38,7 +39,7 @@ class Exposure:
     key: str
     finding: Finding
     rule: Rule
-    effort: float            # attacker minutes after KEV/EPSS scaling
+    effort: float  # attacker minutes after KEV/EPSS scaling
     notes: list[str]
 
     @property
@@ -56,12 +57,11 @@ class Edge:
     dst: str
     cost: float
     key: str | None
-    kind: str          # entry | lateral | goal | post
+    kind: str  # entry | lateral | goal | post
     exposure: Exposure | None = None
 
 
-def build_exposures(items: list[tuple[str, Finding]], kb: KnowledgeBase,
-                    intel: Intel | None = None) -> list[Exposure]:
+def build_exposures(items: list[tuple[str, Finding]], kb: KnowledgeBase, intel: Intel | None = None) -> list[Exposure]:
     out = []
     for key, f in items:
         rule = kb.classify(f)
@@ -157,18 +157,30 @@ def humanize_minutes(m: float | None) -> str:
 
 def _step(ed: Edge) -> dict:
     if ed.kind == "post":
-        return {"from": ed.src, "to": "your data", "key": None, "host": ed.src, "port": None,
-                "title": "Collects data and credentials from the controlled host",
-                "technique": "T1005 Data from Local System", "minutes": ed.cost, "kind": "post"}
+        return {
+            "from": ed.src,
+            "to": "your data",
+            "key": None,
+            "host": ed.src,
+            "port": None,
+            "title": "Collects data and credentials from the controlled host",
+            "technique": "T1005 Data from Local System",
+            "minutes": ed.cost,
+            "kind": "post",
+        }
     e = ed.exposure
     assert e is not None
     return {
         "from": "Attacker" if ed.src == ATTACKER else ed.src,
         "to": "your data" if ed.dst == GOAL else ed.dst,
-        "key": ed.key, "host": e.host, "port": e.finding.port,
+        "key": ed.key,
+        "host": e.host,
+        "port": e.finding.port,
         "title": e.rule.title,
         "technique": f"{e.rule.technique['id']} {e.rule.technique['name']}",
-        "minutes": ed.cost, "kind": ed.kind, "why": e.rule.why,
+        "minutes": ed.cost,
+        "kind": ed.kind,
+        "why": e.rule.why,
     }
 
 
@@ -198,22 +210,27 @@ def fix_plan(edges: list[Edge], exposures: list[Exposure], removed: set[str]) ->
         assert best is not None
         _, key, after_val = best
         e = by_key[key]
-        plan.append({
-            "key": key, "host": e.host, "port": e.finding.port, "title": e.rule.title,
-            "technique": f"{e.rule.technique['id']} {e.rule.technique['name']}",
-            "tactic": e.rule.technique.get("tactic", ""),
-            "fix_minutes": e.rule.fix_minutes, "remediation": e.rule.remediation,
-            "fix_command": e.rule.fix_command,
-            "ttc_before": before,
-            "ttc_after": None if math.isinf(after_val) else after_val,
-            "blocks_all_paths": math.isinf(after_val),
-        })
+        plan.append(
+            {
+                "key": key,
+                "host": e.host,
+                "port": e.finding.port,
+                "title": e.rule.title,
+                "technique": f"{e.rule.technique['id']} {e.rule.technique['name']}",
+                "tactic": e.rule.technique.get("tactic", ""),
+                "fix_minutes": e.rule.fix_minutes,
+                "remediation": e.rule.remediation,
+                "fix_command": e.rule.fix_command,
+                "ttc_before": before,
+                "ttc_after": None if math.isinf(after_val) else after_val,
+                "blocks_all_paths": math.isinf(after_val),
+            }
+        )
         removed.add(key)
     return plan
 
 
-def analyze(exposures: list[Exposure], perspective: str = "external",
-            removed: set[str] | None = None) -> dict:
+def analyze(exposures: list[Exposure], perspective: str = "external", removed: set[str] | None = None) -> dict:
     """Full assessment. `removed` = exposures to pretend are fixed (what-if)."""
     removed = set(removed or ())
     edges = build_edges(exposures, perspective)
@@ -228,18 +245,29 @@ def analyze(exposures: list[Exposure], perspective: str = "external",
         "path": [] if result is None else [_step(ed) for ed in result[1]],
         "fix_plan": plan,
         "exposures": [
-            {"key": e.key, "host": e.host, "port": e.finding.port,
-             "protocol": e.finding.protocol, "service": e.finding.service,
-             "product": e.finding.product, "version": e.finding.version,
-             "rule": e.rule.id, "title": e.rule.title, "severity": e.rule.severity,
-             "technique": f"{e.rule.technique['id']} {e.rule.technique['name']}",
-             "tactic": e.rule.technique.get("tactic", ""),
-             "attacker_minutes": e.effort, "fix_minutes": e.rule.fix_minutes,
-             "why": e.rule.why, "remediation": e.rule.remediation,
-             "fix_command": e.rule.fix_command,
-             "cves": list(dict.fromkeys([*e.rule.cves, *e.finding.cves])),
-             "intel_notes": e.notes, "in_fix_plan": e.key in in_plan,
-             "simulated_fixed": e.key in removed}
+            {
+                "key": e.key,
+                "host": e.host,
+                "port": e.finding.port,
+                "protocol": e.finding.protocol,
+                "service": e.finding.service,
+                "product": e.finding.product,
+                "version": e.finding.version,
+                "rule": e.rule.id,
+                "title": e.rule.title,
+                "severity": e.rule.severity,
+                "technique": f"{e.rule.technique['id']} {e.rule.technique['name']}",
+                "tactic": e.rule.technique.get("tactic", ""),
+                "attacker_minutes": e.effort,
+                "fix_minutes": e.rule.fix_minutes,
+                "why": e.rule.why,
+                "remediation": e.rule.remediation,
+                "fix_command": e.rule.fix_command,
+                "cves": list(dict.fromkeys([*e.rule.cves, *e.finding.cves])),
+                "intel_notes": e.notes,
+                "in_fix_plan": e.key in in_plan,
+                "simulated_fixed": e.key in removed,
+            }
             for e in exposures
         ],
     }

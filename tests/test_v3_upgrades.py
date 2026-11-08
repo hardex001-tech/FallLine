@@ -174,9 +174,7 @@ def test_host_discovery_enforces_scope_and_discovers_live_hosts(tmp_path):
     server.listen(5)
     port = server.getsockname()[1]
     try:
-        found = socket_fallback.discover_hosts(
-            ipaddress.ip_network("127.0.0.1/32"), ports={port: "test-svc"}
-        )
+        found = socket_fallback.discover_hosts(ipaddress.ip_network("127.0.0.1/32"), ports={port: "test-svc"})
         conn, _ = server.accept()
         conn.close()
     finally:
@@ -483,4 +481,3 @@ global.fetch = async (url) => {{
     proc = subprocess.run(["node", str(harness)], capture_output=True, text=True, check=False)
     assert proc.returncode == 0, f"Node v3 UI test failed:\n{proc.stderr}\n{proc.stdout}"
     assert "V3_UI_JS_OK" in proc.stdout
-

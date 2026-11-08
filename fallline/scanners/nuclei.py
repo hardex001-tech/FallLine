@@ -1,4 +1,5 @@
 """Alias module re-exporting nuclei_scanner for plan compatibility."""
+
 from .nuclei_scanner import (
     FORBIDDEN_TAGS,
     SAFE_TAGS,

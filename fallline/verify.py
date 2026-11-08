@@ -3,6 +3,7 @@
 Re-scans ONLY the one exposure (one port / one check), never the whole range.
 Inconclusive results (host down, timeout, missing tool) never mark anything fixed.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -21,8 +22,7 @@ class VerifyResult:
     message: str
 
     def to_dict(self) -> dict:
-        return {"key": self.key, "verified": self.verified, "status": self.status,
-                "message": self.message}
+        return {"key": self.key, "verified": self.verified, "status": self.status, "message": self.message}
 
 
 def _result(store: Store, key: str, verified: bool, message: str) -> VerifyResult:
@@ -30,8 +30,9 @@ def _result(store: Store, key: str, verified: bool, message: str) -> VerifyResul
     return VerifyResult(key, verified, rec["status"] if rec else "", message)
 
 
-def verify_fix(store: Store, kb: KnowledgeBase, scope: Scope | None, toolkit: Toolkit,
-               key: str, user: str | None = None) -> VerifyResult:
+def verify_fix(
+    store: Store, kb: KnowledgeBase, scope: Scope | None, toolkit: Toolkit, key: str, user: str | None = None
+) -> VerifyResult:
     rec = store.get(key)
     if rec is None:
         raise KeyError(key)
@@ -55,10 +56,10 @@ def verify_fix(store: Store, kb: KnowledgeBase, scope: Scope | None, toolkit: To
             current, _ = toolkit.aws_audit()
         except (OSError, ValueError, KeyError, RuntimeError, PermissionError) as exc:
             store.log_event(key, "verify_inconclusive", f"AWS audit failed: {exc.__class__.__name__}")
-            return _result(store, key, False,
-                           f"Inconclusive: AWS audit failed ({exc.__class__.__name__}). Not marked fixed.")
-        still = any(finding_key(c, (kb.classify(c).id if kb.classify(c) else "none")) == key
-                    for c in current)
+            return _result(
+                store, key, False, f"Inconclusive: AWS audit failed ({exc.__class__.__name__}). Not marked fixed."
+            )
+        still = any(finding_key(c, (kb.classify(c).id if kb.classify(c) else "none")) == key for c in current)
         if still:
             store.log_event(key, "verify_failed", "still present in AWS audit")
             return _result(store, key, False, "Still present in the AWS configuration.")
@@ -79,8 +80,9 @@ def verify_fix(store: Store, kb: KnowledgeBase, scope: Scope | None, toolkit: To
     rule = kb.by_id.get(rec["rule_id"])
     if not any(g.port == f.port for g in probe.findings):
         store.log_event(key, "verify_inconclusive", "open but no service details returned")
-        return _result(store, key, False,
-                       "Inconclusive: port is open but the re-scan returned no details. Not marked fixed.")
+        return _result(
+            store, key, False, "Inconclusive: port is open but the re-scan returned no details. Not marked fixed."
+        )
     for g in probe.findings:
         if g.port != f.port:
             continue
@@ -88,14 +90,24 @@ def verify_fix(store: Store, kb: KnowledgeBase, scope: Scope | None, toolkit: To
         if finding_key(g, r.id if r else "none") == key:
             store.log_event(key, "verify_failed", "still detected after re-scan")
             return _result(store, key, False, "Still detected by the re-scan. Stays OPEN.")
-        if g.check == "" and rule and (rule.match.get("product_regex") or rule.match.get("version_regex")) \
-                and not (g.product or g.version):
+        if (
+            g.check == ""
+            and rule
+            and (rule.match.get("product_regex") or rule.match.get("version_regex"))
+            and not (g.product or g.version)
+        ):
             store.log_event(key, "verify_inconclusive", "no version information in re-scan")
-            return _result(store, key, False,
-                           "Inconclusive: the re-scan could not read the service version "
-                           "(install Nmap for version checks). Not marked fixed.")
-    note = (f"re-scan: port {f.port} still open but the weakness "
-            f"'{rec['rule_id']}' is no longer detected (service changed/patched)")
+            return _result(
+                store,
+                key,
+                False,
+                "Inconclusive: the re-scan could not read the service version "
+                "(install Nmap for version checks). Not marked fixed.",
+            )
+    note = (
+        f"re-scan: port {f.port} still open but the weakness "
+        f"'{rec['rule_id']}' is no longer detected (service changed/patched)"
+    )
     store.set_status(key, FIXED, note, "verified_fixed")
     return _result(store, key, True, f"Verified: {note}")
 
@@ -108,4 +120,3 @@ def accept_risk(store: Store, key: str, reason: str) -> None:
 
 def reopen(store: Store, key: str) -> None:
     store.set_status(key, OPEN, "", "reopened")
-

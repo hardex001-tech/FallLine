@@ -1,4 +1,5 @@
 """Alias module re-exporting nmap_scanner for plan compatibility."""
+
 from .nmap_scanner import (
     NmapError,
     build_command,

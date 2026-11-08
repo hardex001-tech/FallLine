@@ -1,4 +1,5 @@
 """Shared data types for scanners."""
+
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass, field
@@ -16,12 +17,12 @@ class Finding:
     product: str = ""
     version: str = ""
     # Extra fields filled in by later pipeline stages (all optional):
-    check: str = ""          # e.g. a Nuclei template id or "web-admin-panel"
-    title: str = ""          # human title from the tool (Nuclei name, web page title)
-    severity: str = ""       # tool-reported severity (info/low/medium/high/critical)
+    check: str = ""  # e.g. a Nuclei template id or "web-admin-panel"
+    title: str = ""  # human title from the tool (Nuclei name, web page title)
+    severity: str = ""  # tool-reported severity (info/low/medium/high/critical)
     cves: list[str] = field(default_factory=list)
-    source: str = "nmap"     # nmap | socket | httpx | nuclei | aws
-    evidence: str = ""       # short, non-sensitive proof of detection
+    source: str = "nmap"  # nmap | socket | httpx | nuclei | aws
+    evidence: str = ""  # short, non-sensitive proof of detection
 
     def to_dict(self) -> dict:
         return asdict(self)

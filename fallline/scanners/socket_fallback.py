@@ -3,6 +3,7 @@
 Only checks a short list of commonly exposed ports on single hosts. It does
 not identify service versions.
 """
+
 from __future__ import annotations
 
 import errno
@@ -13,10 +14,23 @@ from concurrent.futures import ThreadPoolExecutor
 from .base import Finding, PortProbe
 
 COMMON_PORTS = {
-    21: "ftp", 22: "ssh", 23: "telnet", 25: "smtp", 53: "domain",
-    80: "http", 110: "pop3", 139: "netbios-ssn", 143: "imap", 443: "https",
-    445: "microsoft-ds", 1433: "ms-sql", 3306: "mysql", 3389: "ms-wbt-server",
-    5432: "postgresql", 5900: "vnc", 8080: "http-proxy",
+    21: "ftp",
+    22: "ssh",
+    23: "telnet",
+    25: "smtp",
+    53: "domain",
+    80: "http",
+    110: "pop3",
+    139: "netbios-ssn",
+    143: "imap",
+    443: "https",
+    445: "microsoft-ds",
+    1433: "ms-sql",
+    3306: "mysql",
+    3389: "ms-wbt-server",
+    5432: "postgresql",
+    5900: "vnc",
+    8080: "http-proxy",
 }
 
 DISCOVERY_PORTS = {
@@ -48,9 +62,11 @@ def probe_port(host: str, port: int, timeout: float = 1.0) -> PortProbe:
         sock.settimeout(timeout)
         code = sock.connect_ex((host, port))
     if code == 0:
-        return PortProbe("open", "connected", [Finding(host, port, "tcp", "open",
-                                                     service=COMMON_PORTS.get(port, ""),
-                                                     source="socket")])
+        return PortProbe(
+            "open",
+            "connected",
+            [Finding(host, port, "tcp", "open", service=COMMON_PORTS.get(port, ""), source="socket")],
+        )
     if code in (errno.ECONNREFUSED, 10061):  # 10061 = WSAECONNREFUSED
         return PortProbe("closed", "connection refused")
     return PortProbe("unknown", f"no answer (code {code}): inconclusive")
@@ -94,5 +110,3 @@ def discover_hosts(
                 discovered.append(res)
     discovered.sort(key=lambda h: ipaddress.ip_address(h["host"]))
     return discovered
-
-

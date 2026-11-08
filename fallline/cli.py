@@ -406,6 +406,30 @@ def cmd_ingest_ad(args) -> int:
     return 0
 
 
+def cmd_ingest_dast(args) -> int:
+    from .dast_ingest import ingest_dast_report
+
+    store, kb, intel = _stores(args)
+    try:
+        res = ingest_dast_report(args.file)
+    except Exception as exc:
+        print(f"Failed to ingest DAST report: {exc}", file=sys.stderr)
+        return 2
+
+    findings = [v.to_finding() for v in res.vulnerabilities]
+    counts = store.ingest(findings, kb, target=res.scanner.lower(), engine=f"dast-{res.scanner.lower()}")
+
+    print(f"\n[+] Ingested {res.scanner} Report")
+    hosts_str = ", ".join(res.target_hosts) or "None"
+    print(f"    Hosts Discovered: {hosts_str}")
+    new_count = counts.get("new", 0)
+    print(f"    Total Vulnerabilities: {res.total_findings} ({new_count} new into attack graph)")
+    for v in res.vulnerabilities[:5]:
+        print(f"    [{v.severity}] {v.title} at {v.url}")
+        print(f"        WAF Remediation:\n        {v.waf_rule}")
+    return 0
+
+
 def cmd_export_iac(args) -> int:
     from .iac_generator import generate_ansible_playbook, generate_terraform_policy
 
@@ -543,6 +567,11 @@ def main(argv: list[str] | None = None) -> int:
     p = sub.add_parser("ingest-ad", help="ingest BloodHound Active Directory JSON export and find choke points")
     p.add_argument("file", help="path to BloodHound JSON export file")
     p.set_defaults(func=cmd_ingest_ad)
+
+    p = sub.add_parser("ingest-dast", help="ingest OWASP ZAP (JSON) or Burp Suite (XML) DAST vulnerability report")
+    common(p)
+    p.add_argument("file", help="path to ZAP JSON or Burp XML report")
+    p.set_defaults(func=cmd_ingest_dast)
 
     p = sub.add_parser("export-iac", help="export Ansible playbook or Terraform policy for verified choke points")
     common(p)

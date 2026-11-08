@@ -1,0 +1,47 @@
+{
+  "data": [
+    {
+      "Properties": {
+        "name": "JSMITH@CORP.LOCAL",
+        "type": "User"
+      },
+      "Aces": [
+        {
+          "PrincipalName": "WKST-08.CORP.LOCAL",
+          "RightName": "AdminTo"
+        }
+      ]
+    },
+    {
+      "Properties": {
+        "name": "WKST-08.CORP.LOCAL",
+        "type": "Computer"
+      },
+      "Aces": [
+        {
+          "PrincipalName": "SVC_BACKUP@CORP.LOCAL",
+          "RightName": "HasSession"
+        }
+      ]
+    },
+    {
+      "Properties": {
+        "name": "SVC_BACKUP@CORP.LOCAL",
+        "type": "User"
+      },
+      "Aces": [
+        {
+          "PrincipalName": "DOMAIN ADMINS@CORP.LOCAL",
+          "RightName": "MemberOf"
+        }
+      ]
+    },
+    {
+      "Properties": {
+        "name": "DOMAIN ADMINS@CORP.LOCAL",
+        "type": "Group"
+      },
+      "Aces": []
+    }
+  ]
+}

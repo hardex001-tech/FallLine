@@ -10,11 +10,13 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-3.0.0-blue.svg?style=flat-square" alt="Version" />
-  <img src="https://img.shields.io/badge/tests-69%20passed-3fb950.svg?style=flat-square" alt="Tests" />
+  <img src="https://img.shields.io/badge/version-3.5.0-blue.svg?style=flat-square" alt="Version" />
+  <img src="https://img.shields.io/badge/tests-82%20passed-3fb950.svg?style=flat-square" alt="Tests" />
   <img src="https://img.shields.io/badge/python-3.11%20%7C%203.12%20%7C%203.13-blue.svg?style=flat-square" alt="Python" />
   <img src="https://img.shields.io/badge/framework-FastAPI-009688.svg?style=flat-square" alt="FastAPI" />
   <img src="https://img.shields.io/badge/graph-NetworkX%20%2F%20Dijkstra-orange.svg?style=flat-square" alt="NetworkX" />
+  <img src="https://img.shields.io/badge/identity-BloodHound%20AD%20Ingest-purple.svg?style=flat-square" alt="Active Directory" />
+  <img src="https://img.shields.io/badge/remediation-Ansible%20%26%20Terraform-red.svg?style=flat-square" alt="IaC" />
   <img src="https://img.shields.io/badge/threat--intel-CISA%20KEV%20%2F%20EPSS-informational.svg?style=flat-square" alt="Threat Intel" />
   <img src="https://img.shields.io/badge/export-SARIF%202.1.0-58a6ff.svg?style=flat-square" alt="SARIF" />
   <img src="https://img.shields.io/badge/license-MIT-green.svg?style=flat-square" alt="License" />
@@ -33,6 +35,12 @@ FallLine discovers real network, service, web, and cloud exposures, chains them 
 - **Detection Only**: Never exploits, never brute-forces passwords, and excludes all intrusive Nuclei tags (`intrusive`, `dos`, `fuzz`, `bruteforce`, `exploit`, `rce`, `sqli`, `xss`, etc.) both on the command line and at parse time.
 - **Read-Only Cloud Audit (v2)**: The AWS configuration audit wraps `boto3` clients in `ReadOnlyClient`, blocking any call that does not start with `describe_`, `list_`, or `get_`.
 - **Audit Log**: Every scan and verification check (allowed or refused) is recorded to `data/audit.log`.
+
+## Multi-Vector Attack Surface & Enterprise Remediation (v3.5.0)
+- **Email & Domain Spoofing Posture**: `fallline audit-mail <domain>` queries live DNS to audit SPF and DMARC configurations, detects softfail/none policies that allow threat actors to forge domain emails in phishing attacks, and generates exact copy-paste DNS TXT hardening records.
+- **Web & Cloud Exposure Auditor**: `fallline audit-web <host> [--port 80] [--ssl]` scans authorized endpoints for high-severity information disclosures (`/.env` database credentials, `/.git/HEAD` source code dumps) and audits missing HTTP security defense headers (`CSP`, `HSTS`, `X-Frame-Options`, `CORS`).
+- **Active Directory Attack-Path Ingestion**: `fallline ingest-ad <bloodhound.json>` ingests standard BloodHound/SharpHound JSON exports into FallLine's graph engine, models Time-to-Compromise for credential theft and lateral movement, computes the shortest privilege escalation path to Domain Admin, and highlights the single identity choke point.
+- **Automated IaC Remediation**: `fallline export-iac --format ansible|terraform` auto-generates production-grade Ansible playbooks (`fallline_remediation.yml`) and Terraform policies (`remediation.tf`) to neutralize identified choke points across fleets of servers or cloud VPCs in seconds.
 
 ## Features across Milestones (M1 – M5 + v2 + v3)
 - **M1  Scope Guard & Pluggable Scanners**: `scope.py` + adapters for `nmap` (`-sV`), `naabu`, `httpx` (ProjectDiscovery), `nuclei` (safe `exposure`/`misconfig` templates only), and a pure-Python `socket` fallback.

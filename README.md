@@ -40,14 +40,14 @@ FallLine discovers real network, service, web, and cloud exposures, chains them 
 - **Email & Domain Spoofing Posture**: `fallline audit-mail <domain>` queries live DNS to audit SPF and DMARC configurations, detects softfail/none policies that allow threat actors to forge domain emails in phishing attacks, and generates exact copy-paste DNS TXT hardening records.
 - **Web & Cloud Exposure Auditor**: `fallline audit-web <host> [--port 80] [--ssl]` scans authorized endpoints for high-severity information disclosures (`/.env` database credentials, `/.git/HEAD` source code dumps) and audits missing HTTP security defense headers (`CSP`, `HSTS`, `X-Frame-Options`, `CORS`).
 - **Active Directory Attack-Path Ingestion**: `fallline ingest-ad <bloodhound.json>` ingests standard BloodHound/SharpHound JSON exports into FallLine's graph engine, models Time-to-Compromise for credential theft and lateral movement, computes the shortest privilege escalation path to Domain Admin, and highlights the single identity choke point.
-- **Automated IaC Remediation**: `fallline export-iac --format ansible|terraform` auto-generates production-grade Ansible playbooks (`fallline_remediation.yml`) and Terraform policies (`remediation.tf`) to neutralize identified choke points across fleets of servers or cloud VPCs in seconds.
+- **IaC Remediation & HCL Drafting**: `fallline export-iac --format ansible|terraform` generates Ansible remediation playbooks (`fallline_remediation.yml`) alongside experimental Terraform HCL drafts (`remediation.tf`) for infrastructure-security review. *Limitation:* the current Terraform generator emits a baseline `aws_security_group_rule` with `type = "egress"` and requires engineering review; it does not currently revoke existing insecure ingress exposure.
 
 ## Features across Milestones (M1 – M5 + v2 + v3)
 - **M1  Scope Guard & Pluggable Scanners**: `scope.py` + adapters for `nmap` (`-sV`), `naabu`, `httpx` (ProjectDiscovery), `nuclei` (safe `exposure`/`misconfig` templates only), and a pure-Python `socket` fallback.
 - **M2  Rules Knowledge Base, Threat Intel & Attack-Path Engine**:
   - `fallline/rules/rules.yaml`: Maps findings to MITRE ATT&CK techniques, attacker effort minutes, fix effort minutes, plain-language remediation, and copy-ready remediation commands (`fix_command`).
   - `fallline/intel.py`: CISA Known Exploited Vulnerabilities (KEV) and FIRST EPSS loader with local caching (`data/intel_cache.json`) and graceful offline fallback.
-  - `fallline/paths.py`: Directed multigraph engine (`networkx` / Dijkstra) computing shortest path from `ATTACKER` to `GOAL`, time-to-compromise (`external` and `internal` perspectives), and greedy choke-point fix ranking.
+  - `fallline/paths.py`: Directed multigraph engine using a Python `heapq` Dijkstra shortest-path solver (with optional `networkx` `MultiDiGraph` support) computing shortest path from `ATTACKER` to `GOAL`, time-to-compromise (`external` and `internal` perspectives), and greedy choke-point fix ranking.
 - **M3  SQLite Store, Verification Loop & Web Dashboard**:
   - `fallline/store.py` & `fallline/verify.py`: Tracks `OPEN`, `FIXED_VERIFIED`, and `ACCEPTED_RISK`. Re-scans only the single fixed port/check; inconclusive probes (host down / timeout) never mark a finding fixed.
   - `fallline/app.py` & `fallline/web/`: FastAPI dashboard with animated HTML5 canvas dominoes, live time-to-compromise, before/after comparison, target scope & public ownership verification controls, and clearly labeled What-If Simulation mode.
@@ -67,7 +67,7 @@ pip install -r requirements.txt
 cp scope.example.yaml scope.yaml     # edit authorized_by and targets
 ```
 
-### 1. Run the interactive web dashboard (Demo Mode — fake network, safe anywhere)
+### 1. Run the interactive web dashboard (Demo Mode: fake network, safe anywhere)
 ```bash
 python -m fallline serve --demo
 # Open http://127.0.0.1:8000

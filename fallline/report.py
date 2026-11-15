@@ -123,7 +123,7 @@ def render_report(
         info = sev.get(r["key"])
         sv = info["severity"] if info else "info"
         where = _e(f.host) + (f":{_e(f.port)}" if f.port else "")
-        ver = _e(r["note"]) if r["note"] else ("&mdash;" if r["status"] == "OPEN" else "")
+        ver = _e(r["note"]) if r["note"] else ("-" if r["status"] == "OPEN" else "")
         if r["status"] == "FIXED_VERIFIED":
             ver = f"Re-scan confirmed gone {_e(r['verified_at'])}. {ver}"
         parts.append(
@@ -269,13 +269,14 @@ def render_sarif(
     sarif_rules: list[dict] = []
     for rule in kb.rules:
         sv = (rule.severity or "info").lower()
-        tid = rule.technique["id"]
-        tactic = rule.technique.get("tactic", "Initial Access")
+        tid = (rule.technique or {}).get("id", "")
+        tactic = (rule.technique or {}).get("tactic", "") if tid else ""
         help_text = rule.remediation
         help_md = f"**Why:** {rule.why}\n\n**Remediation:** {rule.remediation}"
         if rule.fix_command:
             help_text += f"\nCommand: {rule.fix_command}"
             help_md += f"\n\n```bash\n{rule.fix_command}\n```"
+        tags = ["security", *([f"MITRE/{tid}"] if tid else []), *([f"Tactic/{tactic}"] if tactic else []), *rule.cves]
         sarif_rules.append(
             {
                 "id": rule.id,
@@ -285,11 +286,11 @@ def render_sarif(
                 "help": {"text": help_text, "markdown": help_md},
                 "defaultConfiguration": {"level": _SARIF_LEVELS.get(sv, "note")},
                 "properties": {
-                    "tags": ["security", f"MITRE/{tid}", f"Tactic/{tactic}", *rule.cves],
+                    "tags": tags,
                     "precision": "high",
                     "security-severity": _SARIF_SCORES.get(sv, "1.0"),
                     "tactic": tactic,
-                    "technique": f"{tid} {rule.technique['name']}",
+                    "technique": rule.technique_label(),
                     "fix_command": rule.fix_command,
                 },
             }
@@ -319,9 +320,9 @@ def render_sarif(
         tech = (
             info["technique"]
             if info
-            else (f"{rule_obj.technique['id']} {rule_obj.technique['name']}" if rule_obj else "-")
+            else (rule_obj.technique_label() if rule_obj else "-")
         )
-        tactic = info.get("tactic", "") if info else (rule_obj.technique.get("tactic", "") if rule_obj else "")
+        tactic = info.get("tactic", "") if info else ((rule_obj.technique or {}).get("tactic", "") if rule_obj else "")
         remediation = info["remediation"] if info else (rule_obj.remediation if rule_obj else "")
         fix_cmd = info.get("fix_command", "") if info else (rule_obj.fix_command if rule_obj else "")
         where = f"{f.host}:{f.port}/{f.protocol}" if f.port else f.host
@@ -447,11 +448,11 @@ def render_csv(
         rule_obj = kb.by_id.get(r["rule_id"])
         sv = info["severity"] if info else (rule_obj.severity if rule_obj else "info")
         title = info["title"] if info else (rule_obj.title if rule_obj else (f.title or f.service or "service"))
-        tactic = info.get("tactic", "") if info else (rule_obj.technique.get("tactic", "") if rule_obj else "")
+        tactic = info.get("tactic", "") if info else ((rule_obj.technique or {}).get("tactic", "") if rule_obj else "")
         tech = (
             info["technique"]
             if info
-            else (f"{rule_obj.technique['id']} {rule_obj.technique['name']}" if rule_obj else "-")
+            else (rule_obj.technique_label() if rule_obj else "-")
         )
         att_min = info["attacker_minutes"] if info else (rule_obj.effort_for(f) if rule_obj else "")
         fix_min = info["fix_minutes"] if info else (rule_obj.fix_minutes if rule_obj else "")

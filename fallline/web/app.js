@@ -122,13 +122,13 @@ function render() {
       surv.textContent = `Simulated breach time: ${ttc.textContent}`;
       surv.className = "path-status-text sim";
     } else if (d.ttc_minutes !== null) {
-      surv.textContent = `Active path found — estimated time to compromise: ${d.ttc_human}`;
+      surv.textContent = `Active path found: estimated time to compromise ${d.ttc_human}`;
       surv.className = "path-status-text threat";
     } else if (d.baseline_path && d.baseline_path.length) {
-      surv.textContent = "Attack chain blocked — verified by re-scan";
+      surv.textContent = "Attack chain blocked (verified by re-scan)";
       surv.className = "path-status-text safe";
     } else {
-      surv.textContent = "Ready — run a scan to compute shortest path";
+      surv.textContent = "Ready: run a scan to compute shortest path";
       surv.className = "path-status-text";
     }
   }
@@ -216,7 +216,7 @@ function paint() {
     g.fillStyle = "#8b949e";
     g.font = '13px -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, sans-serif';
     g.textAlign = "center";
-    g.fillText("No active attack path — run a scan or select another perspective", c.width / 2, c.height / 2);
+    g.fillText("No active attack path: run a scan or select another perspective", c.width / 2, c.height / 2);
     g.restore();
     return;
   }
@@ -442,7 +442,7 @@ function renderPlan(d) {
       el(
         "p",
         d.counts.open
-          ? "Attack path blocked — no remaining choke-point fixes required."
+          ? "Attack path blocked: no remaining choke-point fixes required."
           : "No findings yet.",
         "muted"
       )
@@ -485,7 +485,7 @@ function renderPlan(d) {
         const d2 = el("button", "Apply demo patch", "secondary btn-sm");
         d2.onclick = async () => {
           await api("/api/demo/fix", { key: p.key });
-          msg.textContent = "Demo patch applied — click Verify fix to re-scan.";
+          msg.textContent = "Demo patch applied; click Verify fix to re-scan.";
         };
         act.append(d2);
       }
@@ -577,7 +577,7 @@ function renderTable(d) {
           cp.disabled = true;
           try {
             await api("/api/demo/fix", { key: r.key });
-            say("Demo patch applied — click Verify to re-scan.");
+            say("Demo patch applied; click Verify to re-scan.");
           } catch (e) {
             say(e.message);
           }

@@ -194,14 +194,14 @@ def generate_terraform_policy(findings: list[dict[str, Any]], policy_name: str =
             res_id = f"revoke_ingress_{port}"
             lines.extend(
                 [
-                    f"# Remediate Insecure Exposure on Port {port}",
+                    f"# Baseline HCL template for port {port} (unvalidated; emits egress rule for SecOps review, not live ingress revocation)",
                     f'resource "aws_security_group_rule" "{res_id}" {{',
                     '  type              = "egress"',
-                    f'  description       = "FallLine Choke Point: Lock down port {port}"',
+                    f'  description       = "FallLine Choke Point: Restrict port {port} template"',
                     f"  from_port         = {port}",
                     f"  to_port           = {port}",
                     '  protocol          = "tcp"',
-                    '  cidr_blocks       = ["10.0.0.0/8"]  # Restrict to internal VPC only',
+                    '  cidr_blocks       = ["10.0.0.0/8"]  # Example internal CIDR; review before applying',
                     "  security_group_id = var.target_security_group_id",
                     "}",
                     "",

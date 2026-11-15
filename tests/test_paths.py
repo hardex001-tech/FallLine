@@ -32,7 +32,8 @@ def svc(host, port, service, product="", version="", **kw):
 def test_rules_load_and_ids_unique():
     assert len(KB.rules) > 20
     for r in KB.rules:
-        assert r.technique["id"].startswith("T")
+        if r.technique:
+            assert r.technique["id"].startswith("T")
         assert r.gives in ("foothold", "data") and r.stage in ("initial", "lateral")
 
 
@@ -40,6 +41,7 @@ def test_rules_load_and_ids_unique():
     "f,rule",
     [
         (svc("h", 21, "ftp", "vsftpd", "2.3.4"), "vsftpd-234-backdoor"),
+        (svc("h", 21, "ftp", "ProFTPD", "1.3.5"), "proftpd-135-mod-copy"),
         (svc("h", 21, "ftp", "vsftpd", "3.0.5"), "ftp-exposed"),
         (svc("h", 1524, "bindshell"), "bindshell-1524"),
         (svc("h", 513, "login"), "r-services-exposed"),
@@ -51,6 +53,23 @@ def test_rules_load_and_ids_unique():
 )
 def test_classification(f, rule):
     assert KB.classify(f).id == rule
+
+
+def test_proftpd_135_unmapped_mitre_and_preserves_cve():
+    rule = KB.classify(svc("192.168.56.103", 21, "ftp", "ProFTPD", "1.3.5"))
+    assert rule is not None
+    assert rule.id == "proftpd-135-mod-copy"
+    assert "CVE-2015-3306" in rule.cves
+    assert rule.technique == {}
+    assert rule.technique_label() == "Unmapped"
+    assert "T1078" not in rule.technique_label()
+
+    generic_ftp = KB.classify(svc("192.168.56.103", 21, "ftp", "vsftpd", "3.0.5"))
+    assert generic_ftp is not None and generic_ftp.id == "ftp-exposed"
+    assert generic_ftp.technique == {}
+
+    aws_iam = KB.by_id["aws-iam-risk"]
+    assert aws_iam.technique.get("id") == "T1078.004"
 
 
 def test_unknown_service_has_no_rule():

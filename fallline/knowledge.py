@@ -31,17 +31,23 @@ class Rule:
     title: str
     match: dict
     severity: str
-    technique: dict
-    gives: str
-    stage: str
-    effort_minutes: float
-    fix_minutes: float
-    why: str
-    remediation: str
+    technique: dict = field(default_factory=dict)
+    gives: str = "foothold"
+    stage: str = "initial"
+    effort_minutes: float = 60.0
+    fix_minutes: float = 15.0
+    why: str = ""
+    remediation: str = ""
     fix_command: str = ""
     cves: list[str] = field(default_factory=list)
     effort_by_severity: dict = field(default_factory=dict)
     skip_severities: list = field(default_factory=list)
+
+    def technique_label(self) -> str:
+        """Return formatted MITRE ATT&CK technique string, or 'Unmapped' when absent."""
+        tid = (self.technique or {}).get("id", "")
+        name = (self.technique or {}).get("name", "")
+        return f"{tid} {name}".strip() if tid else "Unmapped"
 
     def matches(self, f: Finding) -> bool:
         m = self.match
@@ -124,6 +130,8 @@ def build_mitre_matrix(kb: KnowledgeBase, records: list[dict]) -> list[dict]:
         for tactic in MITRE_TACTICS
     }
     for rule in kb.rules:
+        if not rule.technique or not rule.technique.get("id"):
+            continue
         tactic = rule.technique.get("tactic", "Initial Access")
         if tactic not in by_tactic:
             by_tactic[tactic] = {
@@ -152,7 +160,7 @@ def build_mitre_matrix(kb: KnowledgeBase, records: list[dict]) -> list[dict]:
     for rec in records:
         rule_id = rec.get("rule_id") or ""
         rule = kb.by_id.get(rule_id)
-        if rule is None:
+        if rule is None or not rule.technique or not rule.technique.get("id"):
             continue
         tactic = rule.technique.get("tactic", "Initial Access")
         bucket = by_tactic.get(tactic)
